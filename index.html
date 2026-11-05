@@ -1,1 +1,218 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kivra</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#f4f6f8;color:#1c2430;line-height:1.5}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:#fff;border-bottom:1px solid #e3e7ec;position:sticky;top:0}
+header span{flex:1;color:#5b6675;font-size:14px}
+main{max-width:760px;margin:0 auto;padding:16px}
+.narrow{max-width:420px;margin-top:40px}
+.card{background:#fff;border:1px solid #e3e7ec;border-radius:12px;padding:16px;margin-bottom:14px}
+h1{margin:0 0 12px;font-size:24px} h2{margin:0 0 10px;font-size:18px}
+label{display:block;margin:10px 0;font-size:14px;color:#3b4654}
+input,select{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid #cfd6de;border-radius:8px;font-size:16px;background:#fff;color:inherit}
+button{padding:10px 16px;border:0;border-radius:8px;background:#0f7b5a;color:#fff;font-size:15px;cursor:pointer}
+button.ghost{background:#eef1f4;color:#1c2430} button.red{background:#c0392b}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:#eef1f4}
+.pending{background:#fff3cd;color:#7a5b00}.approved{background:#d8f3e8;color:#0a5a41}.rejected{background:#fde2de;color:#9b2a1d}
+.muted{color:#6b7684;font-size:13px}
+.lock{color:#9b6b00;font-weight:600}
+.price{font-size:18px;font-weight:700;color:#0a5a41}
+.item{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #eef1f4}
+.item:first-child{border-top:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2430;color:#fff;padding:10px 16px;border-radius:8px;max-width:90%;z-index:9}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const APP = 'Kivra';
+const SUPABASE_URL = 'https://xnvxhnohmkblkrjkuepu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RVvnRmfskuNJRYw8YVMRdA_enWXzNgI';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app = $('#app');
+const STATUS = {pending:'قيد المراجعة', approved:'مفعّل', rejected:'مرفوض'};
+const ROLE = {admin:'أدمن', warehouse:'مخزن', pharmacy:'صيدلية'};
+const money = n => Number(n).toFixed(2) + ' ج.م';
+let ME = null, CAT = [];
+
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
+async function run(fn){try{await fn()}catch(e){toast(e.message||'حصل خطأ، حاول تاني')}}
+const ok = r => { if (r.error) throw r.error; return r.data };
+
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session) return authView('login');
+  const {data:p,error} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
+  if(error||!p){toast('تعذر تحميل الحساب');return authView('login')}
+  ME = p;
+  app.innerHTML = `<header><b>${APP}</b><span>${esc(p.business_name)} · ${ROLE[p.role]}</span><button class="ghost" data-act="logout">خروج</button></header><main id="main"></main>`;
+  ({admin:adminView, warehouse:warehouseView, pharmacy:pharmacyView})[p.role]();
+}
+
+function authView(mode){
+  const su = mode==='signup';
+  app.innerHTML = `<main class="card narrow"><h1>${APP}</h1><form id="af">
+  ${su?`<label>نوع الحساب<select id="role"><option value="pharmacy">صيدلية</option><option value="warehouse">مخزن</option></select></label>
+  <label>اسم الصيدلية / المخزن<input id="bn" required></label>
+  <label>رقم الموبايل<input id="ph" type="tel" required></label>`:''}
+  <label>الإيميل<input id="em" type="email" required></label>
+  <label>الباسورد (8 حروف على الأقل)<input id="pw" type="password" minlength="8" required></label>
+  <button>${su?'إنشاء حساب':'دخول'}</button></form>
+  <p><a href="#" data-act="${su?'tologin':'tosignup'}">${su?'عندي حساب':'إنشاء حساب جديد'}</a></p></main>`;
+  $('#af').onsubmit = e => { e.preventDefault(); run(async()=>{
+    const email=$('#em').value.trim(), password=$('#pw').value;
+    if(su){
+      const r = await sb.auth.signUp({email,password,options:{data:{role:$('#role').value,business_name:$('#bn').value.trim(),phone:$('#ph').value.trim()}}});
+      if(r.error) throw r.error;
+      if(!r.data.session){toast('تم إنشاء الحساب. افتح إيميلك واضغط رابط التأكيد، وبعدها ادخل.');return authView('login')}
+    } else {
+      const r = await sb.auth.signInWithPassword({email,password});
+      if(r.error) throw new Error('الإيميل أو الباسورد غلط');
+    }
+    boot();
+  })};
+}
+
+function licenseBox(){
+  const p=ME, st=`<span class="badge ${p.status}">${STATUS[p.status]}</span>`;
+  let h=`<div class="card"><h2>حالة الحساب ${st}</h2>`;
+  if(p.status==='approved') return h+`<p class="muted">حسابك مفعّل.</p></div>`;
+  if(p.status==='pending'&&p.license_path) return h+`<p class="muted">تم رفع الرخصة، في انتظار مراجعة الإدارة.</p></div>`;
+  if(p.status==='rejected') h+=`<p class="muted">تم رفض الرخصة. ارفع رخصة سارية وواضحة.</p>`;
+  else h+=`<p class="muted">ارفع صورة أو PDF للرخصة عشان نفعّل حسابك.</p>`;
+  return h+`<label>ملف الرخصة (صورة أو PDF، أقل من 5 ميجا)<input id="lf" type="file" accept="image/*,application/pdf"></label>
+  <label>تاريخ انتهاء الرخصة<input id="le" type="date"></label>
+  <button data-act="uplic">رفع الرخصة</button></div>`;
+}
+
+/* ---------- صيدلية ---------- */
+async function pharmacyView(){
+  const m=$('#main');
+  m.innerHTML = licenseBox() + `<div class="card"><h2>المنتجات</h2>
+  ${ME.status!=='approved'?'<p class="lock">🔒 الأسعار والخصومات تظهر بعد تفعيل حسابك.</p>':''}
+  <input id="q" placeholder="ابحث باسم المنتج أو الماركة أو المخزن"><div id="cat"></div></div>`;
+  CAT = ok(await sb.rpc('get_catalog'));
+  $('#q').oninput = drawCat; drawCat();
+}
+function drawCat(){
+  const q=($('#q').value||'').trim().toLowerCase();
+  const l=CAT.filter(x=>[x.name,x.brand,x.category,x.warehouse_name].join(' ').toLowerCase().includes(q));
+  $('#cat').innerHTML = l.length ? l.map(x=>`<div class="item"><div><b>${esc(x.name)}</b>
+  <div class="muted">${esc(x.brand)} ${x.category?'· '+esc(x.category):''}</div>
+  <div class="muted">المخزن: ${esc(x.warehouse_name)} · المتاح: ${x.stock}</div></div>
+  <div>${x.price==null?'<span class="lock">🔒 بعد التفعيل</span>':`<span class="price">${money(x.price)}</span>`}</div></div>`).join('')
+  : '<p class="muted">لا توجد منتجات.</p>';
+}
+
+/* ---------- مخزن ---------- */
+async function warehouseView(){
+  const m=$('#main');
+  if(ME.status!=='approved'){m.innerHTML=licenseBox()+'<div class="card muted">تقدر تضيف منتجاتك بعد تفعيل حسابك.</div>';return}
+  m.innerHTML = licenseBox() + `<div class="card"><h2>إضافة منتج</h2>
+  <label>اسم المنتج<input id="pn"></label>
+  <div class="grid"><label>الماركة<input id="pb"></label><label>القسم<input id="pc"></label>
+  <label>السعر العام (ج.م)<input id="pp" type="number" min="0" step="0.01"></label>
+  <label>خصمك % من السعر العام<input id="pd" type="number" min="0" max="100" step="0.01"></label>
+  <label>الكمية المتاحة<input id="ps" type="number" min="0" step="1"></label></div>
+  <button data-act="addp">إضافة</button></div><div class="card"><h2>منتجاتي</h2><div id="mine"></div></div>`;
+  loadMine();
+}
+async function loadMine(){
+  const l = ok(await sb.from('products').select('*').eq('warehouse_id',ME.id).order('created_at',{ascending:false}));
+  $('#mine').innerHTML = l.length ? l.map(x=>`<div class="item"><div><b>${esc(x.name)}</b>
+  <div class="muted">${esc(x.brand)} · سعر عام ${money(x.public_price)} · خصمك ${x.warehouse_discount_pct}%</div></div>
+  <div class="row"><input id="st-${esc(x.id)}" type="number" min="0" step="1" value="${x.stock}" style="width:90px;margin:0">
+  <button data-act="savestock" data-id="${esc(x.id)}">حفظ الكمية</button>
+  <button class="red" data-act="delp" data-id="${esc(x.id)}">حذف</button></div></div>`).join('')
+  : '<p class="muted">لسه مفيش منتجات.</p>';
+}
+
+/* ---------- أدمن ---------- */
+async function adminView(){
+  const s = ok(await sb.from('settings').select('commission_pct').eq('id',1).single());
+  const l = ok(await sb.from('profiles').select('*').neq('role','admin').order('created_at',{ascending:false}));
+  l.sort((a,b)=>(a.status==='pending'?0:1)-(b.status==='pending'?0:1));
+  $('#main').innerHTML = `<div class="card"><h2>نسبة عمولتك %</h2><div class="row">
+  <input id="cm" type="number" min="0" max="99" step="0.01" value="${s.commission_pct}" style="width:120px;margin:0">
+  <button data-act="savecomm">حفظ</button></div></div>
+  <div class="card"><h2>الحسابات</h2>${l.length?l.map(x=>`<div class="item"><div>
+  <b>${esc(x.business_name)}</b> <span class="badge">${ROLE[x.role]}</span> <span class="badge ${x.status}">${STATUS[x.status]}</span>
+  <div class="muted">${esc(x.phone)} ${x.license_expiry?'· الرخصة تنتهي '+esc(x.license_expiry):''}</div></div>
+  <div class="row">${x.license_path?`<button class="ghost" data-act="viewlic" data-path="${esc(x.license_path)}">عرض الرخصة</button>`:'<span class="muted">لا توجد رخصة</span>'}
+  ${x.status!=='approved'?`<button data-act="setst" data-id="${esc(x.id)}" data-st="approved">موافقة</button>`:''}
+  ${x.status!=='rejected'?`<button class="red" data-act="setst" data-id="${esc(x.id)}" data-st="rejected">رفض</button>`:''}</div></div>`).join(''):'<p class="muted">لا توجد حسابات بعد.</p>'}</div>`;
+}
+
+/* ---------- الأوامر ---------- */
+const A = {
+  logout: async()=>{await sb.auth.signOut();ME=null;authView('login')},
+  tologin: ()=>authView('login'),
+  tosignup: ()=>authView('signup'),
+  uplic: async()=>{
+    const f=$('#lf').files[0], ex=$('#le').value;
+    if(!f||!ex) throw new Error('اختار ملف الرخصة وتاريخ انتهائها');
+    if(f.size>5*1024*1024) throw new Error('الملف أكبر من 5 ميجا');
+    const ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    const path=`${ME.id}/license-${Date.now()}.${ext}`;
+    ok(await sb.storage.from('licenses').upload(path,f));
+    ok(await sb.from('profiles').update({license_path:path,license_expiry:ex}).eq('id',ME.id));
+    toast('تم رفع الرخصة، في انتظار المراجعة'); boot();
+  },
+  addp: async()=>{
+    const v=id=>$(id).value.trim(), name=v('#pn'), pp=parseFloat(v('#pp')), pd=parseFloat(v('#pd')||'0'), ps=parseInt(v('#ps'),10);
+    if(!name) throw new Error('اكتب اسم المنتج');
+    if(!(pp>=0)) throw new Error('السعر غير صحيح');
+    if(!(pd>=0&&pd<=100)) throw new Error('الخصم لازم يكون بين 0 و 100');
+    if(!(ps>=0)) throw new Error('الكمية غير صحيحة');
+    ok(await sb.from('products').insert({warehouse_id:ME.id,name,brand:v('#pb'),category:v('#pc'),public_price:pp,warehouse_discount_pct:pd,stock:ps}));
+    toast('تمت إضافة المنتج'); warehouseView();
+  },
+  savestock: async el=>{
+    const n=parseInt(document.getElementById('st-'+el.dataset.id).value,10);
+    if(!(n>=0)) throw new Error('الكمية غير صحيحة');
+    ok(await sb.from('products').update({stock:n}).eq('id',el.dataset.id).eq('warehouse_id',ME.id));
+    toast('تم حفظ الكمية');
+  },
+  delp: async el=>{
+    if(!confirm('حذف المنتج نهائياً؟')) return;
+    ok(await sb.from('products').delete().eq('id',el.dataset.id).eq('warehouse_id',ME.id));
+    loadMine();
+  },
+  savecomm: async()=>{
+    const n=parseFloat($('#cm').value);
+    if(!(n>=0&&n<100)) throw new Error('النسبة لازم تكون بين 0 و 99');
+    ok(await sb.from('settings').update({commission_pct:n}).eq('id',1));
+    toast('تم حفظ نسبة العمولة');
+  },
+  setst: async el=>{
+    ok(await sb.rpc('set_account_status',{target:el.dataset.id,new_status:el.dataset.st}));
+    adminView();
+  },
+  viewlic: async el=>{
+    const w=window.open('','_blank');
+    const r=await sb.storage.from('licenses').createSignedUrl(el.dataset.path,120);
+    if(r.error){if(w)w.close();throw r.error}
+    if(w) w.location=r.data.signedUrl; else location=r.data.signedUrl;
+  }
+};
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  e.preventDefault(); run(()=>A[el.dataset.act](el));
+});
+run(boot);
+</script>
+</body>
+</html>
