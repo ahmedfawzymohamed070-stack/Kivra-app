@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -45,8 +44,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const app = $('#app');
 const STATUS = {pending:'قيد المراجعة', approved:'مفعّل', rejected:'مرفوض'};
 const ROLE = {admin:'أدمن', warehouse:'مخزن', pharmacy:'صيدلية'};
-const money = n => Number(n).toFixed(2) + ' ج.م';
-let ME = null, CAT = [];
+const OST = {pending:'بانتظار المخزن', accepted:'مقبول', rejected:'مرفوض', cancelled:'ملغي', delivered:'تم التسليم', received:'تم الاستلام'};
+const money = n => Number(n || 0).toFixed(2) + ' ج.م';
+const fd = d => d ? new Date(d).toLocaleDateString('ar-EG') : '';
+let ME = null, CAT = [], CART = {}, ORD = [];
 
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
 async function run(fn){try{await fn()}catch(e){toast(e.message||'حصل خطأ، حاول تاني')}}
@@ -57,7 +58,7 @@ async function boot(){
   if(!session) return authView('login');
   const {data:p,error} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
   if(error||!p){toast('تعذر تحميل الحساب');return authView('login')}
-  ME = p;
+  ME = p; CART = {};
   app.innerHTML = `<header><b>${APP}</b><span>${esc(p.business_name)} · ${ROLE[p.role]}</span><button class="ghost" data-act="logout">خروج</button></header><main id="main"></main>`;
   ({admin:adminView, warehouse:warehouseView, pharmacy:pharmacyView})[p.role]();
 }
@@ -67,7 +68,8 @@ function authView(mode){
   app.innerHTML = `<main class="card narrow"><h1>${APP}</h1><form id="af">
   ${su?`<label>نوع الحساب<select id="role"><option value="pharmacy">صيدلية</option><option value="warehouse">مخزن</option></select></label>
   <label>اسم الصيدلية / المخزن<input id="bn" required></label>
-  <label>رقم الموبايل<input id="ph" type="tel" required></label>`:''}
+  <label>رقم الموبايل<input id="ph" type="tel" required></label>
+  <label>العنوان بالتفصيل<input id="ad" required></label>`:''}
   <label>الإيميل<input id="em" type="email" required></label>
   <label>الباسورد (8 حروف على الأقل)<input id="pw" type="password" minlength="8" required></label>
   <button>${su?'إنشاء حساب':'دخول'}</button></form>
@@ -75,7 +77,7 @@ function authView(mode){
   $('#af').onsubmit = e => { e.preventDefault(); run(async()=>{
     const email=$('#em').value.trim(), password=$('#pw').value;
     if(su){
-      const r = await sb.auth.signUp({email,password,options:{data:{role:$('#role').value,business_name:$('#bn').value.trim(),phone:$('#ph').value.trim()}}});
+      const r = await sb.auth.signUp({email,password,options:{data:{role:$('#role').value,business_name:$('#bn').value.trim(),phone:$('#ph').value.trim(),address:$('#ad').value.trim()}}});
       if(r.error) throw r.error;
       if(!r.data.session){toast('تم إنشاء الحساب. افتح إيميلك واضغط رابط التأكيد، وبعدها ادخل.');return authView('login')}
     } else {
@@ -98,42 +100,98 @@ function licenseBox(){
   <button data-act="uplic">رفع الرخصة</button></div>`;
 }
 
+/* ---------- الطلبات (مشتركة) ---------- */
+const ob = (t,id,st,cls='') => `<button class="${cls}" data-act="ostat" data-id="${esc(id)}" data-st="${st}">${t}</button>`;
+function ordersHtml(l, role){
+  if(!l.length) return '<p class="muted">لا توجد طلبات.</p>';
+  return l.map(o=>{
+    const it=o.items||[], com=it.reduce((s,i)=>s+Number(i.commission||0),0), net=it.reduce((s,i)=>s+Number(i.net||0),0);
+    const who = role==='pharmacy' ? `المخزن: ${esc(o.warehouse)} · ${esc(o.warehouse_phone)}`
+      : role==='warehouse' ? `الصيدلية: ${esc(o.pharmacy)} · ${esc(o.pharmacy_phone)}<br>العنوان: ${esc(o.pharmacy_address)}`
+      : `${esc(o.pharmacy)} ← ${esc(o.warehouse)}`;
+    let act='';
+    if(role==='warehouse'){
+      if(o.status==='pending') act=ob('قبول',o.id,'accepted')+ob('رفض',o.id,'rejected','red');
+      else if(o.status==='accepted') act=ob('تم التسليم',o.id,'delivered')+ob('إلغاء الطلب',o.id,'rejected','red');
+    } else if(role==='pharmacy'){
+      if(o.status==='pending') act=ob('إلغاء الطلب',o.id,'cancelled','red');
+      else if(o.status==='delivered') act=ob('تأكيد الاستلام',o.id,'received');
+    }
+    const cls=o.status==='received'?'approved':(o.status==='rejected'||o.status==='cancelled')?'rejected':'pending';
+    return `<div class="item" style="display:block"><div><b>طلب #${o.order_no}</b> <span class="badge ${cls}">${OST[o.status]}</span> <span class="muted">${fd(o.created_at)}</span></div>
+    <div class="muted">${who}</div>
+    ${it.map(i=>`<div>${esc(i.name)} × ${i.qty} — ${money(i.unit_price)}</div>`).join('')}
+    <div><b>الإجمالي: ${money(o.total)}</b></div>
+    ${role!=='pharmacy'?`<div class="muted">عمولة المنصة: ${money(com)} · صافي المخزن بعد العمولة: ${money(net)}</div>`:''}
+    ${o.status==='delivered'?`<div class="muted">يتأكد الاستلام تلقائياً بعد 7 أيام من التسليم.</div>`:''}
+    ${o.received_at?`<div class="muted">تاريخ الاستلام: ${fd(o.received_at)}${o.auto_received?' (تلقائي)':''}</div>`:''}
+    <div class="row" style="margin-top:8px">${act}</div></div>`;
+  }).join('');
+}
+async function refreshOrders(){
+  ORD = ok(await sb.rpc('my_orders'));
+  $('#ords').innerHTML = ordersHtml(ORD, ME.role);
+  if(ME.role==='warehouse') loadLedger();
+  if(ME.role==='pharmacy') loadCat();
+}
+
 /* ---------- صيدلية ---------- */
 async function pharmacyView(){
-  const m=$('#main');
-  m.innerHTML = licenseBox() + `<div class="card"><h2>المنتجات</h2>
-  ${ME.status!=='approved'?'<p class="lock">🔒 الأسعار والخصومات تظهر بعد تفعيل حسابك.</p>':''}
-  <input id="q" placeholder="ابحث باسم المنتج أو الماركة أو المخزن"><div id="cat"></div></div>`;
-  CAT = ok(await sb.rpc('get_catalog'));
-  $('#q').oninput = drawCat; drawCat();
+  $('#main').innerHTML = licenseBox() + `<div class="card"><h2>سلة الطلبات</h2><div id="cart"></div></div>
+  <div class="card"><h2>المنتجات</h2>
+  ${ME.status!=='approved'?'<p class="lock">🔒 الأسعار والخصومات والطلب بعد تفعيل حسابك.</p>':''}
+  <input id="q" placeholder="ابحث باسم المنتج أو الماركة أو المخزن"><div id="cat"></div></div>
+  <div class="card"><h2>طلباتي</h2><div id="ords"></div></div>`;
+  $('#q').oninput = drawCat; drawCart();
+  await loadCat();
+  ORD = ok(await sb.rpc('my_orders')); $('#ords').innerHTML = ordersHtml(ORD,'pharmacy');
 }
+async function loadCat(){ CAT = ok(await sb.rpc('get_catalog')); drawCat(); }
 function drawCat(){
   const q=($('#q').value||'').trim().toLowerCase();
   const l=CAT.filter(x=>[x.name,x.brand,x.category,x.warehouse_name].join(' ').toLowerCase().includes(q));
   $('#cat').innerHTML = l.length ? l.map(x=>`<div class="item"><div><b>${esc(x.name)}</b>
   <div class="muted">${esc(x.brand)} ${x.category?'· '+esc(x.category):''}</div>
   <div class="muted">المخزن: ${esc(x.warehouse_name)} · المتاح: ${x.stock}</div></div>
-  <div>${x.price==null?'<span class="lock">🔒 بعد التفعيل</span>':`<span class="price">${money(x.price)}</span>`}</div></div>`).join('')
+  <div>${x.price==null?'<span class="lock">🔒 بعد التفعيل</span>':`<div class="price">${money(x.price)}</div>
+  ${x.stock>0?`<div class="row" style="margin-top:6px"><input id="q-${esc(x.id)}" type="number" min="1" max="${x.stock}" value="1" style="width:70px;margin:0"><button data-act="addc" data-id="${esc(x.id)}">أضف للسلة</button></div>`:'<span class="muted">نفدت الكمية</span>'}`}</div></div>`).join('')
   : '<p class="muted">لا توجد منتجات.</p>';
+}
+function drawCart(){
+  const e=Object.entries(CART), t=e.reduce((s,[,v])=>s+v.price*v.q,0);
+  $('#cart').innerHTML = e.length ? e.map(([id,v])=>`<div class="item"><div><b>${esc(v.name)}</b>
+  <div class="muted">${esc(v.wh)} · ${v.q} × ${money(v.price)}</div></div><button class="red" data-act="rmc" data-id="${esc(id)}">حذف</button></div>`).join('')
+  + `<p><b>الإجمالي: ${money(t)}</b></p><button data-act="placeo">إرسال الطلب</button>
+  <p class="muted">الدفع بيتم للمخزن مباشرة. لو السلة فيها أكتر من مخزن، هيتقسم لطلب لكل مخزن.</p>`
+  : '<p class="muted">السلة فاضية.</p>';
 }
 
 /* ---------- مخزن ---------- */
 async function warehouseView(){
   const m=$('#main');
-  if(ME.status!=='approved'){m.innerHTML=licenseBox()+'<div class="card muted">تقدر تضيف منتجاتك بعد تفعيل حسابك.</div>';return}
-  m.innerHTML = licenseBox() + `<div class="card"><h2>إضافة منتج</h2>
+  if(ME.status!=='approved'){m.innerHTML=licenseBox()+'<div class="card muted">تقدر تضيف منتجاتك وتستلم الطلبات بعد تفعيل حسابك.</div>';return}
+  m.innerHTML = licenseBox() + `<div class="card"><h2>حسابك مع المنصة (العمولة)</h2><div id="led"></div></div>
+  <div class="card"><h2>الطلبات</h2><div id="ords"></div></div>
+  <div class="card"><h2>إضافة منتج</h2>
   <label>اسم المنتج<input id="pn"></label>
   <div class="grid"><label>الماركة<input id="pb"></label><label>القسم<input id="pc"></label>
   <label>السعر العام (ج.م)<input id="pp" type="number" min="0" step="0.01"></label>
   <label>خصمك % من السعر العام<input id="pd" type="number" min="0" max="100" step="0.01"></label>
   <label>الكمية المتاحة<input id="ps" type="number" min="0" step="1"></label></div>
   <button data-act="addp">إضافة</button></div><div class="card"><h2>منتجاتي</h2><div id="mine"></div></div>`;
-  loadMine();
+  loadMine(); loadLedger();
+  ORD = ok(await sb.rpc('my_orders')); $('#ords').innerHTML = ordersHtml(ORD,'warehouse');
+}
+async function loadLedger(){
+  const x = (ok(await sb.rpc('my_ledger'))||[])[0] || {};
+  $('#led').innerHTML = `<div class="muted">العمولة المستحقة للمنصة: ${money(x.due)} · المسدّد: ${money(x.paid)}</div>
+  <div><span class="price">المتبقي: ${money(x.balance)}</span></div>
+  <div class="muted">العمولة بتتحسب من الطلبات المستلمة بس.</div>`;
 }
 async function loadMine(){
   const l = ok(await sb.from('products').select('*').eq('warehouse_id',ME.id).order('created_at',{ascending:false}));
   $('#mine').innerHTML = l.length ? l.map(x=>`<div class="item"><div><b>${esc(x.name)}</b>
-  <div class="muted">${esc(x.brand)} · سعر عام ${money(x.public_price)} · خصمك ${x.warehouse_discount_pct}%</div></div>
+  <div class="muted">${esc(x.brand)} · سعر عام ${money(x.public_price)} · خصمك ${x.warehouse_discount_pct}%${x.hidden_by_admin?' · مخفي بواسطة الإدارة':''}</div></div>
   <div class="row"><input id="st-${esc(x.id)}" type="number" min="0" step="1" value="${x.stock}" style="width:90px;margin:0">
   <button data-act="savestock" data-id="${esc(x.id)}">حفظ الكمية</button>
   <button class="red" data-act="delp" data-id="${esc(x.id)}">حذف</button></div></div>`).join('')
@@ -144,10 +202,18 @@ async function loadMine(){
 async function adminView(){
   const s = ok(await sb.from('settings').select('commission_pct').eq('id',1).single());
   const l = ok(await sb.from('profiles').select('*').neq('role','admin').order('created_at',{ascending:false}));
+  const led = ok(await sb.rpc('admin_ledger'));
+  ORD = ok(await sb.rpc('my_orders'));
   l.sort((a,b)=>(a.status==='pending'?0:1)-(b.status==='pending'?0:1));
-  $('#main').innerHTML = `<div class="card"><h2>نسبة عمولتك %</h2><div class="row">
+  $('#main').innerHTML = `<div class="card"><h2>نسبة عمولتك % (للطلبات الجديدة)</h2><div class="row">
   <input id="cm" type="number" min="0" max="99" step="0.01" value="${s.commission_pct}" style="width:120px;margin:0">
   <button data-act="savecomm">حفظ</button></div></div>
+  <div class="card"><h2>حسابات المخازن (عمولاتك)</h2>${led.length?led.map(x=>`<div class="item"><div><b>${esc(x.warehouse_name)}</b>
+  <div class="muted">المستحق ${money(x.due)} · المسدّد ${money(x.paid)}</div>
+  <div class="price">المتبقي ${money(x.balance)}</div></div>
+  <div class="row"><input id="pa-${esc(x.warehouse_id)}" type="number" min="0" step="0.01" placeholder="المبلغ" style="width:110px;margin:0">
+  <button data-act="pay" data-id="${esc(x.warehouse_id)}">تسجيل دفعة</button></div></div>`).join(''):'<p class="muted">لا توجد مخازن.</p>'}</div>
+  <div class="card"><h2>كل الطلبات</h2>${ordersHtml(ORD,'admin')}</div>
   <div class="card"><h2>الحسابات</h2>${l.length?l.map(x=>`<div class="item"><div>
   <b>${esc(x.business_name)}</b> <span class="badge">${ROLE[x.role]}</span> <span class="badge ${x.status}">${STATUS[x.status]}</span>
   <div class="muted">${esc(x.phone)} ${x.license_expiry?'· الرخصة تنتهي '+esc(x.license_expiry):''}</div></div>
@@ -191,11 +257,43 @@ const A = {
     ok(await sb.from('products').delete().eq('id',el.dataset.id).eq('warehouse_id',ME.id));
     loadMine();
   },
+  addc: async el=>{
+    const id=el.dataset.id, q=parseInt(document.getElementById('q-'+id).value,10), x=CAT.find(c=>c.id===id);
+    if(!x||x.price==null) throw new Error('المنتج غير متاح');
+    if(!(q>=1)) throw new Error('الكمية غير صحيحة');
+    const cur=(CART[id]?CART[id].q:0)+q;
+    if(cur>x.stock) throw new Error('الكمية المتاحة '+x.stock+' فقط');
+    CART[id]={name:x.name,price:x.price,wh:x.warehouse_name,q:cur};
+    drawCart(); toast('تمت الإضافة للسلة');
+  },
+  rmc: async el=>{delete CART[el.dataset.id];drawCart()},
+  placeo: async()=>{
+    const items=Object.entries(CART).map(([product_id,v])=>({product_id,qty:v.q}));
+    if(!items.length) throw new Error('السلة فاضية');
+    if(!confirm('إرسال الطلب؟')) return;
+    ok(await sb.rpc('place_order',{items}));
+    CART={}; drawCart(); toast('تم إرسال الطلب'); await refreshOrders();
+  },
+  ostat: async el=>{
+    const st=el.dataset.st;
+    if((st==='rejected'||st==='cancelled')&&!confirm('متأكد؟')) return;
+    if(st==='received'&&!confirm('تأكيد إنك استلمت الطلب؟')) return;
+    if(st==='delivered'&&!confirm('تأكيد إنك سلّمت الطلب؟')) return;
+    ok(await sb.rpc('update_order_status',{oid:el.dataset.id,new_status:st}));
+    toast('تم التحديث'); await refreshOrders();
+  },
   savecomm: async()=>{
     const n=parseFloat($('#cm').value);
     if(!(n>=0&&n<100)) throw new Error('النسبة لازم تكون بين 0 و 99');
     ok(await sb.from('settings').update({commission_pct:n}).eq('id',1));
-    toast('تم حفظ نسبة العمولة');
+    toast('تم حفظ نسبة العمولة (للطلبات الجديدة بس)');
+  },
+  pay: async el=>{
+    const id=el.dataset.id, n=parseFloat(document.getElementById('pa-'+id).value);
+    if(!(n>0)) throw new Error('اكتب مبلغ صحيح');
+    if(!confirm('تسجيل دفعة '+money(n)+'؟')) return;
+    ok(await sb.from('payments').insert({warehouse_id:id,amount:n}));
+    toast('تم تسجيل الدفعة'); adminView();
   },
   setst: async el=>{
     ok(await sb.rpc('set_account_status',{target:el.dataset.id,new_status:el.dataset.st}));
