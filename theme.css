@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cairo:wght@400;600;700&display=swap');
+
+/* الخط العام للتطبيق */
+body,input,select,button{font-family:'Cairo',system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif}
+
+/* لوجو Kivra المزخرف (صفحة الدخول) */
+.logo{
+  font-family:'Cinzel Decorative',Georgia,serif;
+  font-weight:900;
+  font-size:46px;
+  letter-spacing:4px;
+  text-align:center;
+  direction:ltr;
+  margin:4px 0 22px;
+  padding-bottom:4px;
+  background:linear-gradient(120deg,#7b2d9e 0%,#c2479a 50%,#e8a15d 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.logo::before{
+  content:"❦";
+  display:block;
+  font-size:20px;
+  letter-spacing:0;
+  margin-bottom:2px;
+}
+.logo::after{
+  content:"";
+  display:block;
+  width:150px;height:2px;
+  margin:12px auto 0;
+  background:linear-gradient(90deg,transparent,#c2479a,transparent);
+}
+
+/* اللوجو في الشريط العلوي بعد الدخول */
+header b{
+  font-family:'Cinzel Decorative',Georgia,serif;
+  font-weight:900;
+  font-size:22px;
+  letter-spacing:3px;
+  direction:ltr;
+  text-shadow:0 1px 6px rgba(80,20,90,.35);
+}
+header b::before{content:"❦ ";font-size:15px;opacity:.9}
+
+/* كروت وأزرار أنعم */
+.card{border-radius:22px}
+.narrow.card{
+  border:1.5px solid transparent;
+  background:linear-gradient(#fff,#fff) padding-box,
+             linear-gradient(135deg,#e9b8dd,#fff 45%,#f3c6a0) border-box;
+}
+button{font-weight:600;letter-spacing:.2px}
+h2{font-weight:700}
