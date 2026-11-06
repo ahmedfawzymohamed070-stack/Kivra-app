@@ -2,31 +2,44 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#a63d9e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kivra">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>Kivra</title>
 <style>
+:root{--p:#a63d9e;--p2:#e0589a;--bg:#fbf5fa;--bd:#f0dcec;--tx:#2a1830;--mu:#7d6a85;--soft:#f6e8f3}
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#f4f6f8;color:#1c2430;line-height:1.5}
-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:#fff;border-bottom:1px solid #e3e7ec;position:sticky;top:0}
-header span{flex:1;color:#5b6675;font-size:14px}
+[hidden]{display:none!important}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--tx);line-height:1.55;padding-bottom:env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;position:sticky;top:0;z-index:5;box-shadow:0 2px 10px rgba(166,61,158,.25)}
+header b{font-size:20px;letter-spacing:.5px}
+header span{flex:1;color:#ffe9f6;font-size:14px}
+header button{background:rgba(255,255,255,.2);color:#fff;padding:8px 14px}
 main{max-width:760px;margin:0 auto;padding:16px}
-.narrow{max-width:420px;margin-top:40px}
-.card{background:#fff;border:1px solid #e3e7ec;border-radius:12px;padding:16px;margin-bottom:14px}
-h1{margin:0 0 12px;font-size:24px} h2{margin:0 0 10px;font-size:18px}
-label{display:block;margin:10px 0;font-size:14px;color:#3b4654}
-input,select{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid #cfd6de;border-radius:8px;font-size:16px;background:#fff;color:inherit}
-button{padding:10px 16px;border:0;border-radius:8px;background:#0f7b5a;color:#fff;font-size:15px;cursor:pointer}
-button.ghost{background:#eef1f4;color:#1c2430} button.red{background:#c0392b}
+.narrow{max-width:430px;margin-top:28px}
+.logo{font-size:34px;font-weight:800;background:linear-gradient(135deg,var(--p),var(--p2));-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 6px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(166,61,158,.07)}
+h2{margin:0 0 10px;font-size:18px;color:var(--p)}
+label{display:block;margin:10px 0;font-size:14px;color:#5a4562}
+input,select{display:block;width:100%;margin-top:4px;padding:11px;border:1px solid #e6cfe1;border-radius:12px;font-size:16px;background:#fff;color:inherit}
+input:focus,select:focus{outline:2px solid var(--p2);border-color:var(--p2)}
+button{padding:10px 16px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-size:15px;cursor:pointer}
+button.ghost{background:var(--soft);color:var(--p)} button.red{background:#c0392b}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:#eef1f4}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:var(--soft);color:var(--p)}
 .pending{background:#fff3cd;color:#7a5b00}.approved{background:#d8f3e8;color:#0a5a41}.rejected{background:#fde2de;color:#9b2a1d}
-.muted{color:#6b7684;font-size:13px}
+.muted{color:var(--mu);font-size:13px}
 .lock{color:#9b6b00;font-weight:600}
-.price{font-size:18px;font-weight:700;color:#0a5a41}
-.item{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #eef1f4}
+.price{font-size:18px;font-weight:700;color:var(--p)}
+.item{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #f4e6f0}
 .item:first-child{border-top:0}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2430;color:#fff;padding:10px 16px;border-radius:8px;max-width:90%;z-index:9}
+.loc{background:var(--soft);border-radius:14px;padding:10px 12px;margin:10px 0}
+#toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#2a1830;color:#fff;padding:10px 16px;border-radius:12px;max-width:90%;z-index:9}
 </style>
 </head>
 <body>
@@ -38,6 +51,7 @@ const APP = 'Kivra';
 const SUPABASE_URL = 'https://xnvxhnohmkblkrjkuepu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_RVvnRmfskuNJRYw8YVMRdA_enWXzNgI';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,9 +59,10 @@ const app = $('#app');
 const STATUS = {pending:'قيد المراجعة', approved:'مفعّل', rejected:'مرفوض'};
 const ROLE = {admin:'أدمن', warehouse:'مخزن', pharmacy:'صيدلية'};
 const OST = {pending:'بانتظار المخزن', accepted:'مقبول', rejected:'مرفوض', cancelled:'ملغي', delivered:'تم التسليم', received:'تم الاستلام'};
+const MAPRE = /^https:\/\/(www\.google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)/i;
 const money = n => Number(n || 0).toFixed(2) + ' ج.م';
 const fd = d => d ? new Date(d).toLocaleDateString('ar-EG') : '';
-let ME = null, CAT = [], CART = {}, ORD = [];
+let ME = null, CAT = [], CART = {}, ORD = [], GEO = null;
 
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
 async function run(fn){try{await fn()}catch(e){toast(e.message||'حصل خطأ، حاول تاني')}}
@@ -58,26 +73,37 @@ async function boot(){
   if(!session) return authView('login');
   const {data:p,error} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
   if(error||!p){toast('تعذر تحميل الحساب');return authView('login')}
-  ME = p; CART = {};
-  app.innerHTML = `<header><b>${APP}</b><span>${esc(p.business_name)} · ${ROLE[p.role]}</span><button class="ghost" data-act="logout">خروج</button></header><main id="main"></main>`;
+  ME = p; CART = {}; GEO = null;
+  app.innerHTML = `<header><b>${APP}</b><span>${esc(p.business_name)} · ${ROLE[p.role]}</span><button data-act="logout">خروج</button></header><main id="main"></main>`;
   ({admin:adminView, warehouse:warehouseView, pharmacy:pharmacyView})[p.role]();
 }
 
 function authView(mode){
-  const su = mode==='signup';
-  app.innerHTML = `<main class="card narrow"><h1>${APP}</h1><form id="af">
+  const su = mode==='signup'; GEO = null;
+  app.innerHTML = `<main class="card narrow"><div class="logo">${APP}</div><form id="af">
   ${su?`<label>نوع الحساب<select id="role"><option value="pharmacy">صيدلية</option><option value="warehouse">مخزن</option></select></label>
   <label>اسم الصيدلية / المخزن<input id="bn" required></label>
   <label>رقم الموبايل<input id="ph" type="tel" required></label>
-  <label>العنوان بالتفصيل<input id="ad" required></label>`:''}
+  <label>العنوان بالتفصيل<input id="ad" required></label>
+  <div id="locbox" class="loc"><button type="button" class="ghost" data-act="geo">📍 حدد موقعي الحالي</button>
+  <span id="geost" class="muted">لم يتم تحديد الموقع</span>
+  <label>أو الصق رابط الموقع من خرائط جوجل<input id="mu" dir="ltr" placeholder="https://maps.app.goo.gl/..."></label>
+  <div class="muted">حدد الموقع وإنت في الصيدلية، أو الصق رابط الخرائط.</div></div>`:''}
   <label>الإيميل<input id="em" type="email" required></label>
   <label>الباسورد (8 حروف على الأقل)<input id="pw" type="password" minlength="8" required></label>
   <button>${su?'إنشاء حساب':'دخول'}</button></form>
-  <p><a href="#" data-act="${su?'tologin':'tosignup'}">${su?'عندي حساب':'إنشاء حساب جديد'}</a></p></main>`;
+  <p><a href="#" data-act="${su?'tologin':'tosignup'}" style="color:var(--p)">${su?'عندي حساب':'إنشاء حساب جديد'}</a></p></main>`;
+  if(su) $('#role').onchange = () => { $('#locbox').hidden = $('#role').value!=='pharmacy'; };
   $('#af').onsubmit = e => { e.preventDefault(); run(async()=>{
     const email=$('#em').value.trim(), password=$('#pw').value;
     if(su){
-      const r = await sb.auth.signUp({email,password,options:{data:{role:$('#role').value,business_name:$('#bn').value.trim(),phone:$('#ph').value.trim(),address:$('#ad').value.trim()}}});
+      const role=$('#role').value, mu=($('#mu').value||'').trim(), ph=role==='pharmacy';
+      if(ph){
+        if(mu && !MAPRE.test(mu)) throw new Error('الرابط لازم يكون من خرائط جوجل');
+        if(!GEO && !mu) throw new Error('حدد موقع الصيدلية أو الصق رابط الخرائط');
+      }
+      const r = await sb.auth.signUp({email,password,options:{data:{role,business_name:$('#bn').value.trim(),phone:$('#ph').value.trim(),address:$('#ad').value.trim(),
+        lat:ph&&GEO?GEO.lat:'',lng:ph&&GEO?GEO.lng:'',maps_url:ph?mu:''}}});
       if(r.error) throw r.error;
       if(!r.data.session){toast('تم إنشاء الحساب. افتح إيميلك واضغط رابط التأكيد، وبعدها ادخل.');return authView('login')}
     } else {
@@ -100,6 +126,16 @@ function licenseBox(){
   <button data-act="uplic">رفع الرخصة</button></div>`;
 }
 
+function locCard(){
+  if(ME.role!=='pharmacy' || ((ME.lat!=null || ME.maps_url) && ME.address)) return '';
+  return `<div class="card"><h2>📍 موقع الصيدلية</h2><p class="muted">مطلوب عشان المخزن يقدر يوصّل لك.</p>
+  <label>العنوان بالتفصيل<input id="ad" value="${esc(ME.address)}"></label>
+  <button type="button" class="ghost" data-act="geo">📍 حدد موقعي الحالي</button>
+  <span id="geost" class="muted">${ME.lat!=null?'تم تحديد الموقع ✓':'لم يتم تحديد الموقع'}</span>
+  <label>أو رابط خرائط جوجل<input id="mu" dir="ltr" value="${esc(ME.maps_url)}"></label>
+  <button data-act="saveloc">حفظ</button></div>`;
+}
+
 /* ---------- الطلبات (مشتركة) ---------- */
 const ob = (t,id,st,cls='') => `<button class="${cls}" data-act="ostat" data-id="${esc(id)}" data-st="${st}">${t}</button>`;
 function ordersHtml(l, role){
@@ -117,6 +153,7 @@ function ordersHtml(l, role){
       if(o.status==='pending') act=ob('إلغاء الطلب',o.id,'cancelled','red');
       else if(o.status==='delivered') act=ob('تأكيد الاستلام',o.id,'received');
     }
+    if(role!=='pharmacy') act+=`<button class="ghost" data-act="openloc" data-id="${esc(o.id)}">📍 موقع الصيدلية</button>`;
     const cls=o.status==='received'?'approved':(o.status==='rejected'||o.status==='cancelled')?'rejected':'pending';
     return `<div class="item" style="display:block"><div><b>طلب #${o.order_no}</b> <span class="badge ${cls}">${OST[o.status]}</span> <span class="muted">${fd(o.created_at)}</span></div>
     <div class="muted">${who}</div>
@@ -137,7 +174,7 @@ async function refreshOrders(){
 
 /* ---------- صيدلية ---------- */
 async function pharmacyView(){
-  $('#main').innerHTML = licenseBox() + `<div class="card"><h2>سلة الطلبات</h2><div id="cart"></div></div>
+  $('#main').innerHTML = licenseBox() + locCard() + `<div class="card"><h2>سلة الطلبات</h2><div id="cart"></div></div>
   <div class="card"><h2>المنتجات</h2>
   ${ME.status!=='approved'?'<p class="lock">🔒 الأسعار والخصومات والطلب بعد تفعيل حسابك.</p>':''}
   <input id="q" placeholder="ابحث باسم المنتج أو الماركة أو المخزن"><div id="cat"></div></div>
@@ -227,6 +264,30 @@ const A = {
   logout: async()=>{await sb.auth.signOut();ME=null;authView('login')},
   tologin: ()=>authView('login'),
   tosignup: ()=>authView('signup'),
+  geo: ()=>new Promise((res,rej)=>{
+    if(!navigator.geolocation) return rej(new Error('المتصفح لا يدعم تحديد الموقع'));
+    navigator.geolocation.getCurrentPosition(p=>{
+      GEO={lat:+p.coords.latitude.toFixed(6),lng:+p.coords.longitude.toFixed(6)};
+      const s=$('#geost'); if(s) s.textContent='تم تحديد الموقع ✓'; res();
+    },()=>rej(new Error('تعذر تحديد الموقع. اسمح للمتصفح بالوصول للموقع، أو الصق رابط الخرائط')),{enableHighAccuracy:true,timeout:15000});
+  }),
+  saveloc: async()=>{
+    const ad=$('#ad').value.trim(), mu=$('#mu').value.trim();
+    if(!ad) throw new Error('اكتب العنوان');
+    if(mu && !MAPRE.test(mu)) throw new Error('الرابط لازم يكون من خرائط جوجل');
+    if(!GEO && ME.lat==null && !mu) throw new Error('حدد موقعك أو الصق رابط الخرائط');
+    const u={address:ad,maps_url:mu}; if(GEO){u.lat=GEO.lat;u.lng=GEO.lng}
+    ok(await sb.from('profiles').update(u).eq('id',ME.id));
+    toast('تم حفظ الموقع'); boot();
+  },
+  openloc: async el=>{
+    const w=window.open('','_blank');
+    const r=await sb.rpc('order_location',{oid:el.dataset.id});
+    if(r.error){if(w)w.close();throw r.error}
+    const x=r.data||{}, url = x.lat!=null ? `https://www.google.com/maps?q=${Number(x.lat)},${Number(x.lng)}` : x.url;
+    if(!url || !MAPRE.test(url)){if(w)w.close();throw new Error('لا يوجد موقع مسجّل لهذه الصيدلية')}
+    if(w) w.location=url; else location=url;
+  },
   uplic: async()=>{
     const f=$('#lf').files[0], ex=$('#le').value;
     if(!f||!ex) throw new Error('اختار ملف الرخصة وتاريخ انتهائها');
