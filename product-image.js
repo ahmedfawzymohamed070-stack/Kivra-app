@@ -33,7 +33,7 @@
       if(f.size>15*1024*1024) throw new Error('الصورة كبيرة جداً');
       toast('جاري رفع الصورة...');
       const blob=await shrink(f);
-      const path='catalog/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
+      const path=ME.id+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
       ok(await sb.storage.from('product-images').upload(path,blob,{contentType:'image/jpeg'}));
       PENDING=path;
     }
