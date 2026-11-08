@@ -28,7 +28,11 @@
     '.dm span{background:#f1f7f6;border-color:#d4e5e2}' +
     'nav .cnt{background:' + GOLD + ';color:#17302E}' +
     '#toast{background:#17302E}#pushmsg{background:#17302E}' +
-    '.narrow .logo{display:none}' +
+    '    '.narrow .logo{display:none}' +
+    'html,body{background:#F4F8F7!important}' +
+    'a{color:var(--p)!important}' +
+    '.narrow.card{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#bfe0db,#fff 45%,#f3dcc0) border-box!important}' +
+    'header b{font-family:Cairo,system-ui,sans-serif!important;font-weight:700!important;font-size:20px!important;letter-spacing:.5px!important;text-shadow:none!important}' +
     '.kv-hero{text-align:center;margin:6px 0 16px}' +
     '.kv-hero .nm{font-size:30px;font-weight:700;color:var(--p);letter-spacing:1px;line-height:1.2;margin-top:6px}' +
     '.kv-hero .tg{color:var(--mu);font-size:13.5px;margin-top:2px}' +
