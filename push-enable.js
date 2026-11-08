@@ -79,7 +79,7 @@
       btn.style.display = 'none';
       say('تم تفعيل الإشعارات ✅');
     } catch (e) {
-      say('حصلت مشكلة في تفعيل الإشعارات. جرّب تاني، ولو اتكررت صوّرلي الرسالة.');
+      say('مشكلة: ' + (e && (e.message || e.name || String(e))), 15000);
       try { console.error('push-enable', e); } catch (_) {}
     }
   }
