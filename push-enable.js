@@ -93,7 +93,6 @@
       say('جاري تفعيل الإشعارات...', 4000);
       await withTimeout(subscribeAndSave(), 15000);
       btn.style.display = 'none';
-      say('تم تفعيل الإشعارات ✅');
     } catch (e) {
       say('مشكلة عند خطوة (' + step + '): ' + why(e), 20000);
       try { console.error('push-enable', e); } catch (_) {}
@@ -112,7 +111,6 @@
         say('v4 · جاري تسجيل الاشتراك...', 4000);
         try {
           await withTimeout(subscribeAndSave(), 15000);
-          say('v4 · تم تسجيل الاشتراك ✅', 4000);
         } catch (e) {
           btn.style.display = 'block';
           say('مشكلة عند خطوة (' + step + '): ' + why(e), 20000);
