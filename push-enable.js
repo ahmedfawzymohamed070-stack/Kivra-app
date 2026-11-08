@@ -1,8 +1,7 @@
-/* push-enable.js v4 — زرار "تفعيل الإشعارات". بيطلب الإذن، بيشترك في Web Push، ويحفظ الاشتراك في Supabase.
-   لو حصل أي خطأ مفيش حاجة في التطبيق بتتأثر. لو مش عاجبك امسحه وسطر script بتاعه. */
+/* push-enable.js — زرار "تفعيل الإشعارات". بيطلب الإذن، بيشترك في Web Push، ويحفظ الاشتراك في Supabase.
+   التجديد التلقائي بيتم في السكوت. الرسائل بتظهر بس لما تدوس الزرار بنفسك. */
 (function () {
   var VAPID = 'BOz9e75LrHyl6gJCgli-_cD4ovHuarhexI2To-jJH8_zfLC0hfWlkZ1_cOdHrinCxskfhRtwoW4k9VUErwO5Ns4';
-  var step = '';
 
   var st = document.createElement('style');
   st.textContent =
@@ -46,25 +45,25 @@
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   }
 
+  var step = '';
   async function subscribeAndSave() {
-    step = '1 تسجيل sw.js';
+    step = 'تسجيل sw.js';
     await navigator.serviceWorker.register('/sw.js');
-    step = '2 انتظار الـ service worker';
+    step = 'انتظار الـ service worker';
     var reg = await navigator.serviceWorker.ready;
-    step = '3 قراءة الاشتراك الحالي';
+    step = 'قراءة الاشتراك الحالي';
     var sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      step = '4 إنشاء اشتراك جديد';
+      step = 'إنشاء اشتراك جديد';
       try {
         sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID) });
       } catch (e) {
-        step = '4ب إعادة المحاولة';
         var old = await reg.pushManager.getSubscription();
         if (old) await old.unsubscribe();
         sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID) });
       }
     }
-    step = '5 حفظ في Supabase';
+    step = 'حفظ في Supabase';
     var j = sub.toJSON();
     var r = await sb.rpc('save_push_subscription', {
       p_endpoint: j.endpoint,
@@ -90,16 +89,17 @@
         say('لازم توافق على الإشعارات عشان توصلك الطلبات.');
         return;
       }
-      say('جاري تفعيل الإشعارات...', 4000);
       await withTimeout(subscribeAndSave(), 15000);
       btn.style.display = 'none';
+      say('تم تفعيل الإشعارات ✅');
     } catch (e) {
-      say('مشكلة عند خطوة (' + step + '): ' + why(e), 20000);
+      say('مشكلة عند خطوة (' + step + '): ' + why(e), 15000);
       try { console.error('push-enable', e); } catch (_) {}
     }
   }
   btn.onclick = onClick;
 
+  var last = 0;
   async function refresh() {
     try {
       if (typeof sb === 'undefined') return;
@@ -108,27 +108,25 @@
       if (!logged) { btn.style.display = 'none'; return; }
       if (supported() && Notification.permission === 'granted') {
         btn.style.display = 'none';
-        say('v4 · جاري تسجيل الاشتراك...', 4000);
-        try {
-          await withTimeout(subscribeAndSave(), 15000);
-        } catch (e) {
-          btn.style.display = 'block';
-          say('مشكلة عند خطوة (' + step + '): ' + why(e), 20000);
-        }
+        if (Date.now() - last < 60000) return;
+        last = Date.now();
+        try { await withTimeout(subscribeAndSave(), 15000); }
+        catch (e) { last = 0; try { console.warn('push-enable (silent)', step, e); } catch (_) {} }
         return;
       }
       btn.style.display = 'block';
-    } catch (e) { say('مشكلة في فحص الدخول: ' + why(e), 15000); }
+    } catch (e) { try { console.warn('push-enable refresh', e); } catch (_) {} }
   }
 
   var tries = 0;
   (function boot() {
     if (typeof sb === 'undefined') {
       if (++tries < 15) setTimeout(boot, 1000);
-      else say('v4 · مش لاقي اتصال Supabase (sb) في التطبيق', 15000);
       return;
     }
     refresh();
     try { sb.auth.onAuthStateChange(function () { setTimeout(refresh, 300); }); } catch (e) {}
+    window.addEventListener('online', function () { setTimeout(refresh, 500); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(refresh, 500); });
   })();
 })();
