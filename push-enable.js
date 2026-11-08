@@ -80,7 +80,7 @@
       say('تم تفعيل الإشعارات ✅');
     } catch (e) {
       say('مشكلة: ' + (e && (e.message || e.name || String(e))), 15000);
-      try { console.error('push-enable', e); } catch (_) {}
+      try { await subscribeAndSave(); } catch (e) { say('مشكلة: ' + (e && (e.message || e.name || String(e))), 15000); }
     }
   }
   btn.onclick = onClick;
