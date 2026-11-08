@@ -28,7 +28,7 @@
     '.dm span{background:#f1f7f6;border-color:#d4e5e2}' +
     'nav .cnt{background:' + GOLD + ';color:#17302E}' +
     '#toast{background:#17302E}#pushmsg{background:#17302E}' +
-    '    '.narrow .logo{display:none}' +
+    '.narrow .logo{display:none}' +
     'html,body{background:#F4F8F7!important}' +
     'a{color:var(--p)!important}' +
     '.narrow.card{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#bfe0db,#fff 45%,#f3dcc0) border-box!important}' +
