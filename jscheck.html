@@ -1,0 +1,31 @@
+<!doctype html>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>فحص الملفات</title>
+<style>body{font-family:sans-serif;margin:0;background:#F4F8F7}h1{background:#1F6F6B;color:#fff;margin:0;padding:16px;font-size:20px}
+.w{padding:14px}.r{background:#fff;border:1px solid #dfe8e7;border-radius:12px;padding:12px;margin:8px 0;line-height:1.7}
+.ok{border-right:6px solid #1a9b5f}.no{border-right:6px solid #c0392b}.wn{border-right:6px solid #e3a857}
+button{background:#1F6F6B;color:#fff;border:0;border-radius:12px;padding:14px;font-size:16px;width:100%;margin-top:8px}code{background:#eef5f4;padding:1px 6px;border-radius:6px}</style></head>
+<body><h1>🧪 فحص الملفات والكاش</h1><div class="w" id="o"></div><div class="w"><button id="b">🧹 امسح كاش التطبيق وافتحه من جديد</button></div>
+<script>
+const o=document.getElementById('o');
+const row=(s,t)=>{const d=document.createElement('div');d.className='r '+s;d.innerHTML=(s==='ok'?'✅ ':s==='no'?'❌ ':'⚠️ ')+t;o.appendChild(d)};
+const files={'store-pro.js':25958,'store-front.js':0,'store-home.js':0,'store-pharmacy.js':0,'kivra-customer.js':0};
+(async()=>{
+ for(const [f,exp] of Object.entries(files)){
+  try{
+   const t=await (await fetch('/'+f+'?x='+Date.now(),{cache:'no-store'})).text();
+   let err=''; try{ new Function(t); }catch(e){ err=e.message; }
+   let msg='<code>'+f+'</code> الحجم '+t.length;
+   if(err){ row('no',msg+' — فيه خطأ كتابة جوه الملف: <code>'+err+'</code><br>يعني اللصق اتشوّه أو ناقص. امسح الملف كله والصقه تاني من أول سطر لآخر سطر.'); continue; }
+   if(exp&&Math.abs(t.length-exp)>40){ row('no',msg+' — الحجم المتوقع حوالي '+exp+'. الملف ناقص أو زيادة، الصقه تاني كامل.'); continue; }
+   let via=''; try{ const t2=await (await fetch('/'+f)).text(); if(t2.length!==t.length) via=' ⚠️ نسخة الكاش مختلفة ('+t2.length+') — اضغط زرار مسح الكاش تحت.'; }catch(e){}
+   row(via?'wn':'ok',msg+' — سليم'+via);
+  }catch(e){ row('no','<code>'+f+'</code> ما اتفتحش: '+e); }
+ }
+ try{ const rs=await navigator.serviceWorker.getRegistrations(); row('ok','Service Worker مسجّل: '+rs.length); const ks=await caches.keys(); row(ks.length?'wn':'ok','كاشات محفوظة: '+(ks.join(' ، ')||'لا يوجد')); }catch(e){ row('wn','ما قدرتش أفحص الكاش: '+e); }
+})();
+document.getElementById('b').onclick=async()=>{
+ try{ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); const rs=await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r=>r.update())); }catch(e){}
+ location.href='/?v='+Date.now();
+};
+</script></body></html>
