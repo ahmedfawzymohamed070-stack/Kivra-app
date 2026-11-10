@@ -1,0 +1,66 @@
+<!doctype html>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>فحص Kivra</title>
+<style>
+body{font-family:sans-serif;margin:0;background:#F4F8F7;color:#1c2423}
+h1{background:#1F6F6B;color:#fff;margin:0;padding:16px;font-size:20px}
+.w{padding:14px;max-width:720px;margin:0 auto}
+.r{background:#fff;border:1px solid #dfe8e7;border-radius:12px;padding:12px;margin:8px 0;font-size:15px;line-height:1.6}
+.ok{border-right:6px solid #1a9b5f}.no{border-right:6px solid #c0392b}.wn{border-right:6px solid #e3a857}
+.t{font-weight:700}.h{color:#7a2b22;margin-top:4px}
+#sum{font-size:17px;font-weight:700;background:#fff7e6;border:1px solid #e3a857}
+code{background:#eef5f4;padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+</style></head><body><h1>🔍 فحص Kivra</h1><div class="w"><div class="r" id="sum">جاري الفحص...</div><div id="out"></div></div>
+<script>
+const out=document.getElementById('out'), bad=[];
+function row(st,title,hint){ const d=document.createElement('div'); d.className='r '+st; d.innerHTML='<div class="t">'+(st==='ok'?'✅ ':st==='no'?'❌ ':'⚠️ ')+title+'</div>'+(hint?'<div class="h">'+hint+'</div>':''); out.appendChild(d); if(st==='no') bad.push(title+(hint?' — '+hint:'')); }
+const need=['kivra-customer.js','store-pharmacy.js','store-front.js','store-home.js','store-pro.js'];
+(async()=>{
+ row('ok','الفحص شغال على: <code>'+location.origin+'</code>','لازم يكون نفس عنوان الموقع اللي بتفتح منه التطبيق.');
+ let html='';
+ try{ const r=await fetch('/index.html?x='+Date.now(),{cache:'no-store'}); html=await r.text(); row(r.ok?'ok':'no','index.html اتفتح (حالة '+r.status+')',r.ok?'':'الموقع ما بيرجّعش index.html.'); }catch(e){ row('no','index.html ما اتفتحش',String(e)); }
+ const srcs=[...html.matchAll(/<script[^>]*\ssrc=["']([^"']+)["']/g)].map(m=>m[1]);
+ for(const f of need){
+   const i=srcs.findIndex(s=>s.split('?')[0].replace(/^\//,'')===f);
+   row(i>=0?'ok':'no','سطر <code>'+f+'</code> '+(i>=0?'موجود في index.html':'ناقص من index.html'),i>=0?'':'أضف <code>&lt;script src="/'+f+'"&gt;&lt;/script&gt;</code> قبل سطر polish-theme.js.');
+ }
+ const last=srcs.length?srcs[srcs.length-1].split('?')[0]:'';
+ row(/polish-theme\.js$/.test(last)?'ok':'no','<code>polish-theme.js</code> آخر سطر script',/polish-theme\.js$/.test(last)?'':'آخر سطر script حالياً: '+last);
+ const pi=srcs.findIndex(s=>/polish-theme/.test(s));
+ for(const f of ['store-front.js','store-home.js','store-pro.js']){ const i=srcs.findIndex(s=>s.split('?')[0].endsWith(f)); if(i>=0&&pi>=0&&i>pi) row('no','<code>'+f+'</code> بعد polish-theme.js','لازم يبقى قبله.'); }
+ const si={}; for(const f of ['store-front.js','store-home.js','store-pro.js','kivra-customer.js']) si[f]=srcs.findIndex(s=>s.split('?')[0].endsWith(f));
+ if(si['store-pro.js']>=0&&(si['store-pro.js']<si['store-front.js']||si['store-pro.js']<si['store-home.js'])) row('wn','ترتيب store-pro.js قبل store-front/home','مش مشكلة غالباً، بس الأفضل يبقى بعدهم.');
+ for(const f of need){
+   try{
+     const r=await fetch('/'+f+'?x='+Date.now(),{cache:'no-store'}), t=await r.text();
+     const isJs=r.ok&&!/^\s*<(!doctype|html)/i.test(t)&&t.length>50;
+     row(isJs?'ok':'no','الملف <code>'+f+'</code> '+(isJs?'متنشر ('+t.length+' حرف)':'مش متنشر'),isJs?'':'اترفع على GitHub بنفس الاسم من غير مسافات وفي أول المستودع؟ وVercel خلّص Deployment؟ (حالة '+r.status+')');
+     if(isJs&&f==='store-pro.js') row(/store_public_profile/.test(t)&&/store-media/.test(t)?'ok':'no','محتوى store-pro.js هو النسخة الأخيرة',/store_public_profile/.test(t)?'':'الملف المرفوع قديم أو ناقص، ارفعه تاني كامل.');
+     if(isJs&&f==='store-pharmacy.js') row(/old_price/.test(t)?'ok':'wn','store-pharmacy.js فيه خانات الخصم',/old_price/.test(t)?'':'نسخة قديمة من غير الخصم.');
+   }catch(e){ row('no','الملف '+f+' ما اتفتحش',String(e)); }
+ }
+ const m=html.match(/createClient\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/);
+ if(!m){ row('wn','ما قدرتش أقرا بيانات Supabase من index.html','هنكمل بالباقي.'); }
+ else{
+   const U=m[1].replace(/\/$/,''), K=m[2];
+   const fns={store_get_my_profile:{},store_my_banners:{},store_list_pharmacies:{},store_public_profile:{p_pharmacy:'00000000-0000-0000-0000-000000000000'},
+     store_save_my_profile:{},store_add_banner:{p_image:'x'},store_delete_banner:{p_id:'00000000-0000-0000-0000-000000000000'},store_view:{p_pharmacy:'00000000-0000-0000-0000-000000000000'},store_my_products:{}};
+   for(const [n,a] of Object.entries(fns)){
+     try{
+       const r=await fetch(U+'/rest/v1/rpc/'+n,{method:'POST',headers:{apikey:K,Authorization:'Bearer '+K,'Content-Type':'application/json'},body:JSON.stringify(a)});
+       let j={}; try{ j=await r.json(); }catch(e){}
+       const missing=r.status===404&&(j.code==='PGRST202'||/schema cache/i.test(j.message||''));
+       row(missing?'no':'ok','دالة قاعدة البيانات <code>'+n+'</code> '+(missing?'مش موجودة':'موجودة'),missing?'ده معناه إن SQL ما اتنفّذش (أو اتنفّذ ووقف عند خطأ).':'');
+     }catch(e){ row('wn','ما قدرتش أفحص '+n,String(e)); }
+   }
+   try{
+     const r=await fetch(U+'/storage/v1/object/public/store-media/x.jpg'); const t=await r.text();
+     const nob=/Bucket not found/i.test(t);
+     row(nob?'no':'ok','مكان الصور <code>store-media</code> '+(nob?'مش موجود':'موجود'),nob?'SQL الصور ما اتنفّذش.':'');
+   }catch(e){ row('wn','ما قدرتش أفحص مكان الصور',String(e)); }
+ }
+ const s=document.getElementById('sum');
+ if(!bad.length){ s.textContent='✅ كله سليم. لو لسه الكارت مش ظاهر: امسح بيانات الموقع من كروم وسجّل دخول تاني، وابعتلي سكرين.'; }
+ else{ s.innerHTML='❌ فيه '+bad.length+' مشكلة. صلّح <u>أول واحدة</u> بس من اللي فوق (الحمراء)، وافتح الصفحة تاني. وابعتلي سكرين لو احتجت.'; }
+})();
+</script></body></html>
