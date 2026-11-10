@@ -1,18 +1,8 @@
-/* Kivra: واجهة متجر الصيدلية للعميل (بانرات + صفوف الماركات + أقسام + فلاتر). بترجع للقديم لو حصل خطأ */
+/* Kivra: واجهة متجر الصيدلية للعميل (صفوف الماركات + أقسام + فلاتر). بترجع للقديم لو حصل خطأ */
 (function(){
   const st=document.createElement('style');
   st.textContent=`
   #sf{margin-top:12px}
-  .sf-bn{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;scrollbar-width:none;border-radius:16px}
-  .sf-bn::-webkit-scrollbar{display:none}
-  .sf-s{flex:0 0 100%;scroll-snap-align:start;min-height:132px;border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:center;color:#fff;background:linear-gradient(135deg,#1F6F6B,#2A8780);cursor:pointer}
-  .sf-s:nth-child(2){background:linear-gradient(135deg,#B9802F,#E3A857)}
-  .sf-s:nth-child(3){background:linear-gradient(135deg,#17504d,#1F6F6B)}
-  .sf-s b{font-size:22px;line-height:1.3}
-  .sf-s span{opacity:.92;margin-top:6px;font-size:14px}
-  .sf-d{display:flex;justify-content:center;gap:6px;margin:8px 0 4px}
-  .sf-d i{width:8px;height:8px;border-radius:50%;background:#cfd8d7}
-  .sf-d i.on{background:#2a3331}
   .sf-cats{display:flex;gap:12px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
   .sf-cats::-webkit-scrollbar{display:none}
   .sf-cat{flex:0 0 auto;width:68px;text-align:center;font-size:12px;color:#2a3331;background:none;padding:0;cursor:pointer}
@@ -82,13 +72,7 @@
     const cats=[...new Set(items.map(x=>String(x.category||'').trim()).filter(Boolean))];
     cats.sort((a,b)=>{const ia=Object.keys(ICON).indexOf(a), ib=Object.keys(ICON).indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib)});
 
-    const slides=brands.slice(0,3).map(([b,l])=>{
-      const m=Math.max(...l.map(off));
-      return `<div class="sf-s" data-sf="brand" data-v="${esc(b)}"><b>${m>0?`خصم حتى ${m}% على ${esc(b)}`:`تسوّق ${esc(b)}`}</b><span>${l.length} منتج</span></div>`;
-    }).join('');
-
-    $('#sf').innerHTML=`<div class="sf-bn" id="sf-bn">${slides}</div><div class="sf-d" id="sf-d">${brands.slice(0,3).map((_,i)=>`<i class="${i?'':'on'}"></i>`).join('')}</div>
-    ${cats.length?`<div class="sf-cats">${cats.map(c=>`<button type="button" class="sf-cat" data-sf="cat" data-v="${esc(c)}"><u>${ICON[c]||'🧴'}</u>${esc(c)}</button>`).join('')}</div>`:''}
+    $('#sf').innerHTML=`${cats.length?`<div class="sf-cats">${cats.map(c=>`<button type="button" class="sf-cat" data-sf="cat" data-v="${esc(c)}"><u>${ICON[c]||'🧴'}</u>${esc(c)}</button>`).join('')}</div>`:''}
     <div class="sf-ctl"><input type="search" id="sf-q" placeholder="ابحث في المتجر">
     <select id="sf-s"><option value="">الترتيب: الافتراضي</option><option value="low">الأقل سعراً</option><option value="off">الأعلى خصماً</option></select>
     <label class="sf-chk"><input type="checkbox" id="sf-o"> عروض بس</label></div><div id="sf-body"></div>`;
@@ -138,17 +122,6 @@
     $('#sf-s').onchange=e=>{S.sort=e.target.value;body()};
     $('#sf-o').onchange=e=>{S.offers=e.target.checked;body()};
 
-    const bn=$('#sf-bn'), sl=[...bn.children], dots=[...document.querySelectorAll('#sf-d i')];
-    if('IntersectionObserver' in window){
-      const io=new IntersectionObserver(es=>es.forEach(en=>{ if(en.isIntersecting){ const i=sl.indexOf(en.target); dots.forEach((d,j)=>d.classList.toggle('on',i===j)); } }),{root:bn,threshold:.6});
-      sl.forEach(s=>io.observe(s));
-    }
-    let n=0;
-    const tm=setInterval(()=>{
-      if(!document.body.contains(bn)){ clearInterval(tm); return; }
-      if(sl.length<2) return;
-      n=(n+1)%sl.length; sl[n].scrollIntoView({behavior:'smooth',block:'nearest',inline:'start'});
-    },4500);
     window.scrollTo(0,0);
   }
 
