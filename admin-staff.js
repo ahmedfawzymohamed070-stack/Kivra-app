@@ -1,7 +1,7 @@
-/* admin-staff.js — المشرفون وصلاحياتهم.
-   - المشرف الرئيسي (إنت) بيشوف تبويب "🛡️ المشرفون": يضيف مشرف بالإيميل، يحدد صلاحياته، يعدّلها أو يشيله.
+/* admin-staff.js (v2) — المشرفون وصلاحياتهم، وإنشاء حساب الموظف من التطبيق نفسه.
+   - المشرف الرئيسي (إنت) بيشوف تبويب "🛡️ المشرفون": يضيف موظف (إيميل + باسورد مؤقت + صلاحيات)، يعدّل الصلاحيات، يغيّر الباسورد، أو يشيله.
    - المشرف المحدود بيشوف التبويبات المسموحة له بس، والداتابيز بتمنعه من الكتابة في اللي مش مسموح له.
-   بيتحمّل قبل polish-theme.js وبعد admin-catalog.js. لو حصل أي خطأ التطبيق بيشتغل زي ما هو. */
+   محتاج Edge Function اسمها staff-admin. بيتحمّل قبل polish-theme.js وبعد admin-catalog.js. لو حصل أي خطأ التطبيق بيشتغل زي ما هو. */
 (function () {
   var LABELS = {
     accounts: 'الحسابات (الموافقة على الصيدليات والمخازن)',
@@ -60,10 +60,27 @@
     m.innerHTML = '<div class="card"><h2>مفيش صلاحيات</h2><p class="muted">حسابك مشرف بس لسه ما اتحددتلوش صلاحيات. كلّم المشرف الرئيسي.</p></div>';
   };
 
-  function permBoxes(sel) {
+  async function callStaff(body) {
+    var r = await sb.functions.invoke('staff-admin', { body: body });
+    if (r.error) {
+      var msg = r.error.message || 'تعذر تنفيذ الطلب';
+      try {
+        if (r.error.context && r.error.context.json) {
+          var j = await r.error.context.json();
+          if (j && j.error) msg = j.error;
+        }
+      } catch (e) {}
+      if (/not found|404/i.test(msg)) msg = 'دالة staff-admin مش منشورة لسه على Supabase';
+      throw new Error(msg);
+    }
+    if (r.data && r.data.error) throw new Error(r.data.error);
+    return r.data;
+  }
+
+  function permBoxes() {
     return Object.keys(LABELS).map(function (k) {
       return '<label style="display:flex;gap:8px;align-items:center;margin:6px 0">' +
-        '<input type="checkbox" data-perm="' + k + '"' + (sel.indexOf(k) >= 0 ? ' checked' : '') + ' style="width:auto;display:inline-block;margin:0">' +
+        '<input type="checkbox" data-perm="' + k + '" style="width:auto;display:inline-block;margin:0">' +
         '<span>' + esc(LABELS[k]) + '</span></label>';
     }).join('');
   }
@@ -76,6 +93,7 @@
     var r = await sb.rpc('admin_list_admins');
     if (r.error) throw r.error;
     var list = r.data || [];
+    var editing = null;
 
     var cards = list.map(function (a, i) {
       var perms = (a.perms || []).map(function (k) { return LABELS[k] || k; });
@@ -85,24 +103,34 @@
         (a.is_super ? '<div class="muted">كل الصلاحيات</div>' :
           '<div class="muted">' + (perms.length ? esc(perms.join(' · ')) : 'من غير صلاحيات') + '</div>' +
           '<div class="row" style="margin-top:8px"><button type="button" class="ghost" data-sedit="' + i + '">تعديل الصلاحيات</button>' +
-          '<button type="button" class="red" data-sdel="' + i + '">إزالة</button></div>') + '</div>';
+          '<button type="button" class="ghost" data-spw="' + i + '">🔑 باسورد جديد</button>' +
+          '<button type="button" class="red" data-sdel="' + i + '">إزالة</button></div>' +
+          '<div class="row" data-spwrow="' + i + '" style="margin-top:8px" hidden>' +
+          '<input data-spwin="' + i + '" type="text" dir="ltr" placeholder="الباسورد الجديد (8 حروف على الأقل)" style="flex:1;margin:0">' +
+          '<button type="button" data-spwgo="' + i + '">حفظ</button></div>') + '</div>';
     }).join('');
 
     m.innerHTML =
-      '<div class="card"><h2>🛡️ المشرفون</h2><div class="muted">أضف مشرفين وحدد لكل واحد صلاحياته. الإخفاء بيحصل في الشاشات، والكتابة (الموافقات والدفعات والكتالوج والعروض) بتتمنع من الداتابيز نفسها. مشاهدة الطلبات بتتحجب من الشاشة بس.</div></div>' +
+      '<div class="card"><h2>🛡️ المشرفون</h2><div class="muted">أضف موظفين وحدد لكل واحد صلاحياته. الإخفاء بيحصل في الشاشات، والكتابة (الموافقات والدفعات والكتالوج والعروض) بتتمنع من الداتابيز نفسها. مشاهدة الطلبات بتتحجب من الشاشة بس.</div></div>' +
       cards +
-      '<div class="card" id="stform"><h2 id="sttitle">إضافة مشرف</h2>' +
-      '<div class="muted">اعمل حساب للمشرف الأول: Authentication ← Users ← Add user (مع Auto Confirm) أو سجّله من شاشة التسجيل العادية. وبعدين اكتب إيميله هنا.</div>' +
+      '<div class="card" id="stform"><h2 id="sttitle">إضافة موظف</h2>' +
+      '<div class="muted" id="sthint">اكتب إيميل الموظف وباسورد مؤقت، والحساب بيتعمل تلقائياً. ابعتله الإيميل والباسورد وهو يغيّره بعد أول دخول.</div>' +
       '<label>الإيميل<input id="stem" type="email" dir="ltr" placeholder="staff@example.com"></label>' +
       '<label>الاسم<input id="stnm" placeholder="اسم الموظف"></label>' +
-      '<div><b>الصلاحيات</b>' + permBoxes([]) + '</div>' +
+      '<label id="stpwl">باسورد مؤقت (8 حروف على الأقل)<input id="stpw" type="text" dir="ltr" autocomplete="off"></label>' +
+      '<div><b>الصلاحيات</b>' + permBoxes() + '</div>' +
       '<div class="row" style="margin-top:8px"><button id="stsave">حفظ</button><button id="stcancel" class="ghost" type="button" hidden>إلغاء التعديل</button></div>' +
-      '<div class="muted" style="margin-top:6px">لو غيّرت صلاحيات مشرف شغال، لازم يسجّل خروج ويدخل تاني.</div></div>';
+      '<div class="muted" style="margin-top:6px">لو غيّرت صلاحيات موظف شغال، لازم يسجّل خروج ويدخل تاني.</div></div>';
 
     function setForm(a) {
+      editing = a || null;
       m.querySelector('#stem').value = a ? a.email : '';
+      m.querySelector('#stem').readOnly = !!a;
       m.querySelector('#stnm').value = a ? (a.name || '') : '';
-      m.querySelector('#sttitle').textContent = a ? 'تعديل صلاحيات المشرف' : 'إضافة مشرف';
+      m.querySelector('#stpw').value = '';
+      m.querySelector('#stpwl').hidden = !!a;
+      m.querySelector('#sttitle').textContent = a ? 'تعديل صلاحيات الموظف' : 'إضافة موظف';
+      m.querySelector('#sthint').hidden = !!a;
       m.querySelector('#stcancel').hidden = !a;
       m.querySelectorAll('[data-perm]').forEach(function (c) {
         c.checked = !!(a && (a.perms || []).indexOf(c.getAttribute('data-perm')) >= 0);
@@ -116,6 +144,26 @@
     });
     m.querySelector('#stcancel').onclick = function () { setForm(null); };
 
+    m.querySelectorAll('[data-spw]').forEach(function (b) {
+      b.onclick = function () {
+        var row = m.querySelector('[data-spwrow="' + b.getAttribute('data-spw') + '"]');
+        if (row) row.hidden = !row.hidden;
+      };
+    });
+    m.querySelectorAll('[data-spwgo]').forEach(function (b) {
+      b.onclick = function () {
+        run(async function () {
+          var i = b.getAttribute('data-spwgo');
+          var a = list[Number(i)];
+          var pw = m.querySelector('[data-spwin="' + i + '"]').value;
+          if (pw.length < 8) throw new Error('الباسورد لازم 8 حروف على الأقل');
+          await callStaff({ action: 'reset_password', user_id: a.user_id, password: pw });
+          toast('تم تغيير الباسورد');
+          await show('staff');
+        });
+      };
+    });
+
     m.querySelectorAll('[data-sdel]').forEach(function (b) {
       b.onclick = function () {
         if (b.getAttribute('data-armed') !== '1') {
@@ -128,7 +176,7 @@
           var a = list[Number(b.getAttribute('data-sdel'))];
           var x = await sb.rpc('admin_revoke', { p_user: a.user_id });
           if (x.error) throw x.error;
-          toast('تمت إزالة المشرف');
+          toast('تمت إزالة الموظف');
           await show('staff');
         });
       };
@@ -141,9 +189,16 @@
         var perms = [];
         m.querySelectorAll('[data-perm]').forEach(function (c) { if (c.checked) perms.push(c.getAttribute('data-perm')); });
         var name = m.querySelector('#stnm').value.trim();
-        var x = await sb.rpc('admin_grant', { p_email: email, p_perms: perms, p_name: name || null });
-        if (x.error) throw x.error;
-        toast('تم حفظ المشرف');
+        if (editing) {
+          var x = await sb.rpc('admin_grant', { p_email: email, p_perms: perms, p_name: name || null });
+          if (x.error) throw x.error;
+          toast('تم حفظ الصلاحيات');
+        } else {
+          var pw = m.querySelector('#stpw').value;
+          if (pw.length < 8) throw new Error('الباسورد المؤقت لازم 8 حروف على الأقل');
+          await callStaff({ action: 'create', email: email, password: pw, name: name, perms: perms });
+          toast('تم إنشاء حساب الموظف');
+        }
         await show('staff');
       });
     };
