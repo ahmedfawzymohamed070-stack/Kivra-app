@@ -470,7 +470,7 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]'); if(!el) return;
   e.preventDefault(); run(()=>A[el.dataset.act](el));
 });
-run(()=>boot());
+(function(){var p=false;try{p=localStorage.getItem('kivra_preview')==='1'}catch(e){}p?window.addEventListener('load',()=>run(()=>boot())):run(()=>boot());})();
 </script>
     <script src="/catalog-add.js"></script>
   <script src="/shop-ui.js"></script>
