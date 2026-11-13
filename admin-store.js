@@ -81,7 +81,7 @@
   var CK='';
   setInterval(function(){
     try{
-      var adm=window.ME&&ME.id&&ME.role==='admin';
+      var adm=(typeof ME!=='undefined')&&ME&&ME.id&&ME.role==='admin';
       if(adm&&CK!==ME.id){ CK=ME.id; }
       if(adm&&!BTN){ BTN=document.createElement('button'); BTN.id='as-b'; BTN.type='button'; BTN.textContent='🛍️ طلبات المتجر'; document.body.appendChild(BTN); }
       if(!adm&&BTN){ BTN.remove(); BTN=null; var o=q('#as-ov'); if(o) o.remove(); CK=''; }
