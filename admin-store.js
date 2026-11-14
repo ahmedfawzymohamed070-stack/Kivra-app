@@ -71,6 +71,7 @@
         +'<div class="as-g"><span>طلبات اتسلّمت</span><span>'+esc(String(x.orders))+'</span></div>'
         +'<div class="as-g"><span>مبيعات (منتجات)</span><span>'+money(x.sales)+' ج.م</span></div>'
         +'<div class="as-g"><span>العمولة</span><span>'+money(x.commission)+' ج.م</span></div>'
+        +(Number(x.returns_comm)?'<div class="as-g"><span>خصم مرتجعات</span><span>−'+money(x.returns_comm)+' ج.م</span></div>':'')
         +'<div class="as-g"><span>استلمت منها</span><span>'+money(x.paid)+' ج.م</span></div>'
         +'<div class="as-g bal"><span>المستحق</span><span>'+money(x.balance)+' ج.م</span></div>'
         +'<button class="as-v" data-aspay="'+esc(x.id)+'">➕ تسجيل دفعة استلمتها</button></div>';
