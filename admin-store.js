@@ -54,6 +54,7 @@
         +'<div>🏪 '+esc(pname(x.pharmacy))+'</div>'
         +'<div>👤 '+esc(x.name||'')+(x.phone?' · <a href="tel:'+esc(x.phone)+'">'+esc(x.phone)+'</a>':'')+'</div>'
         +'<div>'+pc+'</div>'
+        +(Number(x.discount)>0?'<div class="m">🎁 خصم نقاط: −'+money(x.discount)+' ج.م (على حسابك من العمولة)</div>':'')
         +(x.commission_at?'<div class="m">عمولة الطلب: '+money(x.commission_amt)+' ج.م ('+esc(String(x.commission_pct))+'%)</div>':'')
         +(x.proof_path?'<button class="as-v" data-asv="'+esc(x.proof_path)+'">🧾 عرض صورة التحويل</button>':'')+'</div>';
     });

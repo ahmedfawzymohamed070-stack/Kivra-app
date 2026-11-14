@@ -39,10 +39,13 @@
     if (mode === 'delivery' && !addr) throw new Error('اكتب عنوان التوصيل');
     let fee = 0;
     for (const d of sh.querySelectorAll('.sx-sum > div')) { const sp = d.querySelectorAll('span'); if (sp[0] && sp[0].textContent.trim() === 'التوصيل') fee = parseFloat(digits(sp[1] && sp[1].textContent)) || 0; }
+    const up = sh.querySelector('[data-kvu]:checked'), pts = up ? (parseInt(up.getAttribute('data-pts'), 10) || 0) : 0;
     let pos = null; if (mode === 'delivery') pos = await getPos();
     toast('جاري إرسال الطلب...');
-    const id = ok(await _o('store_place_order', { p_pharmacy: PH, p_mode: mode, p_name: name, p_phone: phone, p_address: addr, p_notes: notes,
-      p_lat: pos ? pos.lat : null, p_lng: pos ? pos.lng : null, p_items: items, p_fee: fee }));
+    const args = { p_pharmacy: PH, p_mode: mode, p_name: name, p_phone: phone, p_address: addr, p_notes: notes,
+      p_lat: pos ? pos.lat : null, p_lng: pos ? pos.lng : null, p_items: items, p_fee: fee };
+    if (pts > 0) args.p_points = pts;
+    const id = ok(await _o('store_place_order', args));
     // فضّي السلة
     for (let i = 0; i < 3000; i++) {
       const b = document.querySelector('#sx-sheet .sx-ci [data-d="-1"]'); if (!b) break;
