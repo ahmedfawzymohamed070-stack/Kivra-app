@@ -51,10 +51,16 @@
     return OFFERS.filter(o => String(o.group_key || '') === id || String(o.catalog_id || '') === id || (n && norm(o.name) === n));
   }
   function whHtml(r) {
-    const l = offersFor(r).slice().sort((a, b) => ((a.price == null) - (b.price == null)) || (Number(a.price) - Number(b.price)));
+    const l = offersFor(r).slice().sort((a, b) => ((Number(a.stock) <= 0) - (Number(b.stock) <= 0)) || ((a.price == null) - (b.price == null)) || (Number(a.price) - Number(b.price)));
     if (!l.length) return '<div class="pp-box muted">مش موجود عند أي مخزن حالياً (بحسب الاسم).</div>';
-    return '<div class="pp-box"><b>سعره عند المخازن:</b>' + l.map((o, i) => '<div class="pp-w"><span>' + esc(o.warehouse_name) + (i === 0 && o.price != null && l.length > 1 ? ' <span class="badge approved">الأقل</span>' : '') +
-      ' <span class="muted">· المتاح ' + esc(o.stock) + '</span></span><b>' + (o.price == null ? '🔒' : money(o.price)) + '</b></div>').join('') + '</div>';
+    const avail = l.filter(o => Number(o.stock) > 0 && o.price != null).length;
+    return '<div class="pp-box"><b>سعره عند المخازن:</b>' + l.map((o, i) => {
+      const out = Number(o.stock) <= 0;
+      return '<div class="pp-w"><span>' + esc(o.warehouse_name) +
+        (i === 0 && !out && o.price != null && avail > 1 ? ' <span class="badge approved">الأقل</span>' : '') +
+        (out ? ' <span class="badge rejected">خلصان</span>' : ' <span class="muted">· المتاح ' + esc(o.stock) + '</span>') +
+        '</span><b>' + (o.price == null ? '🔒' : money(o.price)) + '</b></div>';
+    }).join('') + '</div>';
   }
 
   /* ---------- الإضافة اليدوي ---------- */

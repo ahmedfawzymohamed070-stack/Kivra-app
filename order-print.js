@@ -1,4 +1,4 @@
-/* Kivra: إذن تسليم مطبوع (PDF) للمخزن، وعليه رقم الطلب ذو الست خانات */
+/* Kivra: إذن تسليم مطبوع (PDF) للمخزن، وعليه رقم الطلب ذو الست خانات + السعر العام ونسبة الخصم لكل صنف */
 (function(){
   const st=document.createElement('style');
   st.textContent=`
@@ -19,6 +19,10 @@
   .op-tb{width:100%;border-collapse:collapse;margin-bottom:10px}
   .op-tb th,.op-tb td{border:1px solid #cfdad8;padding:6px 8px;text-align:right}
   .op-tb th{background:#e3f0ee}
+  .op-tb s{color:#777}
+  .op-tb .dc{color:#0a5a41;font-weight:700}
+  .op-sub{display:flex;justify-content:space-between;padding:3px 12px;font-size:14px}
+  .op-sub.dc{color:#0a5a41;font-weight:700}
   .op-tot{display:flex;justify-content:space-between;align-items:center;background:#e3f0ee;border-radius:8px;padding:10px 12px;font-size:17px;font-weight:800;margin-bottom:8px}
   .op-nt{font-size:12px;color:#444;margin-bottom:14px}
   .op-sg{display:flex;gap:14px;margin-top:26px}
@@ -48,16 +52,53 @@
     return {n,p};
   }
 
-  function noteHtml(o,dv){
-    const it=o.items||[], app=(typeof APP!=='undefined'&&APP)||'Kivra';
-    const rows=it.map((i,k)=>`<tr><td>${k+1}</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(i.unit_price)}</td><td>${money(Number(i.qty)*Number(i.unit_price))}</td></tr>`).join('');
+  /* بيجيب السعر العام لكل صنف: من بيانات الطلب لو موجود، وإلا من جدول order_items */
+  async function withPublic(o){
+    const it=(o.items||[]).map(i=>Object.assign({},i));
+    if(it.every(i=>i.public_price!=null)) return it;
+    try{
+      const r=await sb.from('order_items').select('*').eq('order_id',o.id);
+      const rows=r.data||[];
+      const used=new Set();
+      it.forEach(i=>{
+        if(i.public_price!=null) return;
+        const k=rows.findIndex((x,idx)=>!used.has(idx)
+          && Number(x.unit_price)===Number(i.unit_price)
+          && Number(x.qty!=null?x.qty:x.quantity)===Number(i.qty)
+          && (!x.name||String(x.name)===String(i.name)));
+        if(k>-1){ used.add(k); i.public_price=rows[k].public_price; }
+      });
+    }catch(e){}
+    return it;
+  }
+
+  function noteHtml(o,dv,it){
+    const app=(typeof APP!=='undefined'&&APP)||'Kivra';
+    const pub=i=>i.public_price!=null&&Number(i.public_price)>Number(i.unit_price);
+    const hasD=it.some(pub);
+    const rows=it.map((i,k)=>{
+      const tot=money(Number(i.qty)*Number(i.unit_price));
+      if(!hasD) return `<tr><td>${k+1}</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${money(i.unit_price)}</td><td>${tot}</td></tr>`;
+      const pct=pub(i)?Math.round((1-Number(i.unit_price)/Number(i.public_price))*100):0;
+      return `<tr><td>${k+1}</td><td>${esc(i.name)}</td><td>${esc(i.qty)}</td><td>${i.public_price!=null?money(i.public_price):'-'}</td><td class="${pct?'dc':''}">${pct?pct+'%':'-'}</td><td>${money(i.unit_price)}</td><td>${tot}</td></tr>`;
+    }).join('');
+    const head=hasD
+      ?'<th>م</th><th>الصنف</th><th>الكمية</th><th>السعر العام</th><th>الخصم</th><th>سعر الوحدة</th><th>الإجمالي</th>'
+      :'<th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th>';
     const qty=it.reduce((s,i)=>s+Number(i.qty||0),0);
+    let sub='';
+    if(hasD){
+      const before=it.reduce((s,i)=>s+Number(i.qty)*Number(i.public_price!=null?i.public_price:i.unit_price),0);
+      const after=it.reduce((s,i)=>s+Number(i.qty)*Number(i.unit_price),0);
+      sub=`<div class="op-sub"><span>الإجمالي قبل الخصم</span><span>${money(before)}</span></div><div class="op-sub dc"><span>إجمالي الخصم</span><span>- ${money(before-after)}</span></div>`;
+    }
     return `<div class="sheet">
     <div class="op-h"><div><div class="op-t">إذن تسليم</div><div>${esc(when(o.created_at))}</div></div>
     <div class="op-n"><small>رقم الطلب</small><b>${serial(o.order_no)}</b></div></div>
     <div class="op-b"><div><small>من (المخزن)</small><b>${esc(o.warehouse||'')}</b><br>${esc(o.warehouse_phone||'')}</div>
     <div><small>إلى (الصيدلية)</small><b>${esc(o.pharmacy||'')}</b><br>${esc(o.pharmacy_phone||'')}${o.pharmacy_address?'<br>'+esc(o.pharmacy_address):''}</div></div>
-    <table class="op-tb"><thead><tr><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="op-tb"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>
+    ${sub}
     <div class="op-tot"><span>إجمالي المبلغ المستحق (${qty} قطعة)</span><span>${money(o.total)}</span></div>
     <div class="op-nt">الدفع يتم للمخزن مباشرة عند الاستلام. الرجاء مراجعة الأصناف والكميات قبل التوقيع.</div>
     ${dv.n?`<div class="op-nt">المندوب: <b>${esc(dv.n)}</b>${dv.p?' · '+esc(dv.p):''}</div>`:''}
@@ -69,9 +110,10 @@
     const o=(Array.isArray(ORD)?ORD:[]).find(x=>String(x.id)===String(el.dataset.id));
     if(!o) throw new Error('الطلب مش متحمّل، حدّث الصفحة وجرّب تاني');
     const dv=await driverOf(o.id,o);
+    const it=await withPublic(o);
     const old=document.getElementById('opr'); if(old) old.remove();
     const d=document.createElement('div'); d.id='opr';
-    d.innerHTML=`<div class="opbar"><button type="button" class="go" data-opx="print">🖨️ طباعة / حفظ PDF</button><button type="button" class="ghost" data-opx="close">إغلاق</button></div>${noteHtml(o,dv)}`;
+    d.innerHTML=`<div class="opbar"><button type="button" class="go" data-opx="print">🖨️ طباعة / حفظ PDF</button><button type="button" class="ghost" data-opx="close">إغلاق</button></div>${noteHtml(o,dv,it)}`;
     d.addEventListener('click',e=>{
       const b=e.target.closest('[data-opx]'); if(!b) return;
       if(b.dataset.opx==='close') d.remove(); else window.print();
