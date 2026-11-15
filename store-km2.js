@@ -84,19 +84,52 @@
     const sv = savedPos();
     st.textContent = sv ? '✓ موقعك محفوظ' + (sv.at ? ' (' + new Date(sv.at).toLocaleDateString('ar-EG') + ')' : '') : 'مفيش موقع محفوظ، هنطلب موقعك الحالي لما تفتح صيدلية';
   }
+  const isCust = () => typeof ME !== 'undefined' && ME && ['admin', 'warehouse', 'pharmacy'].indexOf(ME.role) === -1;
+  const ld = v => String(v == null ? '' : v).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
   function paintMe() {
-    if (typeof ME === 'undefined' || !ME || ['admin', 'warehouse', 'pharmacy'].indexOf(ME.role) > -1) return;
-    const m = document.getElementById('main'); if (!m || document.getElementById('kv-me-loc')) return;
+    if (!isCust()) return;
+    const m = document.getElementById('main'); if (!m) return;
     const h = Array.prototype.find.call(m.querySelectorAll('.card h2'), x => x.textContent.indexOf('بيانات الحساب') > -1);
     if (!h) return;
-    h.closest('.card').insertAdjacentHTML('afterend', '<div class="card" id="kv-me-loc"><h2>📍 موقعي للتوصيل</h2>' +
-      '<div class="muted" id="kv-me-st">...</div>' +
-      '<div style="margin:8px 0"><button type="button" class="ghost" data-kmme="gps">📍 حدد موقعي الحالي</button></div>' +
-      '<label>أو الصق رابط موقعك من خرائط جوجل<input id="kv-me-url" dir="ltr" placeholder="https://www.google.com/maps/..."></label>' +
-      '<div class="row"><button type="button" data-kmme="url">حفظ الرابط</button><button type="button" class="ghost" data-kmme="clear">مسح الموقع المحفوظ</button></div>' +
-      '<div class="muted" style="margin-top:6px">الموقع بيتحفظ على الموبايل ده وبيتستخدم لحساب رسوم التوصيل. تقدر تغيّره في أي وقت، وبعد التغيير افتح الصيدلية تاني عشان الرسوم تتحدّث.</div></div>');
-    meStatus();
+    const card = h.closest('.card');
+    if (!document.getElementById('kv-ed-btn')) {
+      card.insertAdjacentHTML('beforeend', '<div class="row" style="margin-top:10px"><button type="button" class="ghost" id="kv-ed-btn" data-kmed="open">✏️ تعديل بياناتي</button></div>' +
+        '<div id="kv-ed-form" hidden style="margin-top:8px">' +
+        '<label>الاسم<input id="kv-ed-n" maxlength="80"></label>' +
+        '<label>رقم الموبايل<input id="kv-ed-p" type="tel" dir="ltr" inputmode="tel"></label>' +
+        '<label>العنوان بالتفصيل<input id="kv-ed-a" maxlength="300"></label>' +
+        '<div class="row"><button type="button" data-kmed="save">حفظ</button><button type="button" class="ghost" data-kmed="cancel">إلغاء</button></div>' +
+        '<div class="muted" style="margin-top:6px">تغيير الموبايل هنا مش بيغيّر إيميل الدخول.</div></div>');
+    }
+    if (!document.getElementById('kv-me-loc')) {
+      card.insertAdjacentHTML('afterend', '<div class="card" id="kv-me-loc"><h2>📍 موقعي للتوصيل</h2>' +
+        '<div class="muted" id="kv-me-st">...</div>' +
+        '<div style="margin:8px 0"><button type="button" class="ghost" data-kmme="gps">📍 حدد موقعي الحالي</button></div>' +
+        '<label>أو الصق رابط موقعك من خرائط جوجل<input id="kv-me-url" dir="ltr" placeholder="https://www.google.com/maps/..."></label>' +
+        '<div class="row"><button type="button" data-kmme="url">حفظ الرابط</button><button type="button" class="ghost" data-kmme="clear">مسح الموقع المحفوظ</button></div>' +
+        '<div class="muted" style="margin-top:6px">الموقع بيتحفظ على الموبايل ده وبيتستخدم لحساب رسوم التوصيل. تقدر تغيّره في أي وقت، وبعد التغيير افتح الصيدلية تاني عشان الرسوم تتحدّث.</div></div>');
+      meStatus();
+    }
   }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-kmed]'); if (!b) return;
+    const k = b.dataset.kmed, f = document.getElementById('kv-ed-form'), g = x => document.getElementById(x);
+    if (!f) return;
+    if (k === 'open') {
+      g('kv-ed-n').value = ME.business_name || ''; g('kv-ed-p').value = ME.phone || ''; g('kv-ed-a').value = ME.address || '';
+      f.hidden = false; b.hidden = true; return;
+    }
+    if (k === 'cancel') { f.hidden = true; const o = g('kv-ed-btn'); if (o) o.hidden = false; return; }
+    if (k === 'save') run(async () => {
+      const n = g('kv-ed-n').value.trim(), ph = ld(g('kv-ed-p').value).replace(/\s+/g, ''), a = g('kv-ed-a').value.trim();
+      if (n.length < 2) throw new Error('اكتب الاسم');
+      if (!/^\+?[0-9]{8,15}$/.test(ph)) throw new Error('رقم الموبايل غير صحيح');
+      if (a.length < 3) throw new Error('اكتب العنوان');
+      ok(await sb.rpc('update_my_profile', { p_name: n, p_phone: ph, p_address: a }));
+      toast('تم حفظ بياناتك ✓');
+      await boot('acc');
+    });
+  });
   function saveMe(pt) { try { localStorage.setItem(SK, JSON.stringify({ lat: pt.lat, lng: pt.lng, at: Date.now() })); } catch (e) { throw new Error('مقدرتش أحفظ الموقع على الموبايل'); } meStatus(); }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-kmme]'); if (!b) return;
