@@ -1,5 +1,13 @@
-/* store-dev10.js — بيحمّل ملفات المتجر لكل الزوار (من غير علامة المعاينة) */
+/* store-dev10.js — بيحمّل ملفات المتجر لكل الزوار والعملاء (من غير ما يحتاج علامة المعاينة) */
 (function () {
+  /* الملفات الجديدة (البانرات وغيرها) بتشتغل بس لو علامة kivra_preview موجودة، فبنفعّلها لكل الناس مرة واحدة */
+  try {
+    if (localStorage.getItem('kivra_preview') !== '1') {
+      localStorage.setItem('kivra_preview', '1');
+      if (!sessionStorage.getItem('kv_rl')) { sessionStorage.setItem('kv_rl', '1'); location.reload(); return; }
+    }
+  } catch (e) {}
+
   var FILES = ['kivra-store.js', 'kivra-customer.js', 'signup-labels.js',
                'store-pharmacy.js', 'store-front.js', 'store-home.js',
                'store-cart.js', 'store-profile2.js', 'store-km2.js', 'store-order2.js', 'store-tabs.js'];
@@ -29,4 +37,18 @@
   for (var i = 0; i < FILES.length; i++) {
     document.write('<script src="/' + FILES[i] + '?v=10" onerror="window.__kvLoadErr(\'' + FILES[i] + '\')"><\/script>');
   }
+
+  /* نخفي شارة "وضع المعاينة" عن الناس */
+  var tm = null;
+  function hideBadge() {
+    var l = document.querySelectorAll('span,div,b,small,p');
+    for (var k = 0; k < l.length; k++) {
+      var e = l[k];
+      if (!e.children.length && e.textContent.trim() === 'وضع المعاينة') e.style.display = 'none';
+    }
+  }
+  try {
+    new MutationObserver(function () { clearTimeout(tm); tm = setTimeout(hideBadge, 120); })
+      .observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
 })();
