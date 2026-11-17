@@ -1,4 +1,4 @@
-/* Kivra: تقرير مبيعات المتجر + حساب الصيدلية مع المنصة (زرار "📊 التقارير" جوه متجري). قراءة بس، إضافة فقط */
+/* Kivra store-report v3 — كارت "تقارير المتجر" جوه حسابي (قراءة بس، إضافة فقط) */
 (function(){
 const st=document.createElement('style');
 st.textContent=`
@@ -87,9 +87,9 @@ document.addEventListener('click',e=>{
 let tmr=null;
 new MutationObserver(()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{
   try{
-    if(typeof ME==='undefined'||!ME||ME.role!=='pharmacy'||typeof TAB==='undefined'||TAB!=='acc') return;
+    if(typeof ME==='undefined'||!ME||ME.role!=='pharmacy') return;
     const main=document.getElementById('main'); if(!main||document.getElementById('r2-card')) return;
-    if(!main.querySelector('.card')) return;
+    if((main.textContent||'').indexOf('بيانات الحساب')<0) return;
     const card=document.createElement('div'); card.className='card'; card.id='r2-card';
     card.innerHTML='<h2>📊 تقارير المتجر</h2><p class="muted">مبيعات المتجر وطلبات اليوم وحسابك مع المنصة.</p><div id="r2-box"><button type="button" data-r2open="1">عرض التقرير</button></div>';
     main.insertBefore(card, main.children[1]||null);
