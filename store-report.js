@@ -9,6 +9,8 @@ st.textContent=`
 .r2-in{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin:8px 0}.r2-in label{flex:1;min-width:120px;margin:0;font-size:12px}
 .r2-o{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px dashed #e3ecea;font-size:13px}
 .r2-h{font-size:15px;font-weight:800;margin:16px 0 6px;color:#1c2423}
+.r2-ch{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.r2-ch button{padding:8px 14px;border-radius:99px;background:#eef5f4;color:#1F6F6B;font-size:13px}.r2-ch button.on{background:#1F6F6B;color:#fff}
+.r2-ac{display:flex;gap:8px;margin-top:8px}.r2-ac button{flex:1}
 `;
 document.head.appendChild(st);
 const E=s=>(typeof esc==='function'?esc(s==null?'':s):String(s==null?'':s));
@@ -39,7 +41,7 @@ async function render(box){
   const chip=(k,l)=>`<button type="button" data-r2="${k}" class="${RANGE===k?'on':''}">${l}</button>`;
   const net=Number(d.sales||0)-Number(d.commission||0);
   box.innerHTML=
-  `<div class="so-ch">${chip('today','اليوم')}${chip('week','آخر 7 أيام')}${chip('month','الشهر')}${chip('custom','تاريخ محدد')}</div>`+
+  `<div class="r2-ch">${chip('today','اليوم')}${chip('week','آخر 7 أيام')}${chip('month','الشهر')}${chip('custom','تاريخ محدد')}</div>`+
   (RANGE==='custom'?`<div class="r2-in"><label>من<input type="date" id="r2f" value="${E(CF)}"></label><label>إلى<input type="date" id="r2t" value="${E(CT)}"></label><button type="button" data-r2="go">عرض</button></div>`:'')+
   `<div class="muted">الفترة: ${E(a)} ← ${E(b)}</div>
   <div class="r2-g">
@@ -59,7 +61,7 @@ async function render(box){
   ${pays.length?'<div class="muted">آخر الدفعات:</div>'+pays.map(p=>`<div class="r2-o"><span>${tm(p.created_at)}${p.note?' · '+E(p.note):''}</span><b>${M(p.amount)}</b></div>`).join(''):''}
   <div class="r2-h">📦 طلبات الفترة (${ords.length})</div>
   ${ords.length?ords.map(o=>`<div class="r2-o"><span><b>#${E(o.order_no)}</b> · ${E(SL[o.status]||o.status)} · ${o.mode==='delivery'?'توصيل':'استلام'}<br><span class="muted">${tm(o.delivered_at||o.created_at)}</span></span><span style="text-align:left"><b>${M(o.total)}</b>${Number(o.commission_amt)>0?'<br><span class="muted">عمولة '+M(o.commission_amt)+'</span>':''}</span></div>`).join(''):'<p class="muted">مفيش طلبات في الفترة دي.</p>'}
-  <div class="so-ac"><button type="button" class="ghost" data-r2="print">🖨️ طباعة التقرير</button></div>`;
+  <div class="r2-ac"><button type="button" class="ghost" data-r2="print">🖨️ طباعة التقرير</button></div>`;
 }
 function printRep(){
   if(!LAST) return; const {a,b,d,c}=LAST, ords=d.orders||[];
@@ -74,14 +76,8 @@ function printRep(){
   w.document.close();
 }
 document.addEventListener('click',e=>{
-  const rep=e.target.closest('[data-rep]');
-  if(rep){
-    const root=document.getElementById('so-root'); if(!root) return;
-    const row=root.querySelector('.so-ch'); if(!row) return;
-    while(row.nextSibling) row.nextSibling.remove();
-    row.querySelectorAll('button').forEach(x=>x.classList.remove('on')); rep.classList.add('on');
-    const box=document.createElement('div'); box.id='r2-box'; root.appendChild(box); render(box); return;
-  }
+  const op=e.target.closest('[data-r2open]');
+  if(op){ const box=document.getElementById('r2-box'); if(box){ op.remove(); render(box); } return; }
   const b=e.target.closest('[data-r2]'); if(!b) return;
   const k=b.dataset.r2, box=document.getElementById('r2-box'); if(!box) return;
   if(k==='print'){ printRep(); return; }
@@ -91,10 +87,12 @@ document.addEventListener('click',e=>{
 let tmr=null;
 new MutationObserver(()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{
   try{
-    if(typeof ME==='undefined'||!ME||ME.role!=='pharmacy') return;
-    const root=document.getElementById('so-root'); if(!root||root.querySelector('[data-rep]')) return;
-    const row=root.querySelector('.so-ch'); if(!row) return;
-    const b=document.createElement('button'); b.type='button'; b.dataset.rep='1'; b.textContent='📊 التقارير'; row.appendChild(b);
+    if(typeof ME==='undefined'||!ME||ME.role!=='pharmacy'||typeof TAB==='undefined'||TAB!=='acc') return;
+    const main=document.getElementById('main'); if(!main||document.getElementById('r2-card')) return;
+    if(!main.querySelector('.card')) return;
+    const card=document.createElement('div'); card.className='card'; card.id='r2-card';
+    card.innerHTML='<h2>📊 تقارير المتجر</h2><p class="muted">مبيعات المتجر وطلبات اليوم وحسابك مع المنصة.</p><div id="r2-box"><button type="button" data-r2open="1">عرض التقرير</button></div>';
+    main.insertBefore(card, main.children[1]||null);
   }catch(e){}
 },80); }).observe(document.body,{childList:true,subtree:true});
 })();
