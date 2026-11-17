@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F6F6B">
+<meta name="robots" content="noindex">
+<title>Kivra — دخول الموظفين</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#f3f8f7;color:#1c2423;line-height:1.55}
+header{background:#1F6F6B;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header b{font-size:19px}header span{flex:1;font-size:13px;color:#d4ece9}
+main{max-width:640px;margin:0 auto;padding:14px 14px 40px}
+.card{background:#fff;border:1px solid #dfe8e7;border-radius:16px;padding:14px;margin:10px 0}
+h2{margin:0 0 8px;font-size:18px;color:#1F6F6B}
+input{display:block;width:100%;padding:12px;border:1px solid #cfdcda;border-radius:12px;font-size:16px;margin:6px 0}
+button{padding:10px 16px;border:0;border-radius:12px;background:#1F6F6B;color:#fff;font-size:15px;cursor:pointer}
+button.g{background:#e6efee;color:#1F6F6B}button.r{background:#c0392b}button.w{background:#fff;color:#fff;background:rgba(255,255,255,.2)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.row button{flex:1;min-width:110px}
+.muted{color:#7a8785;font-size:13px}.err{color:#b3261e;font-size:14px;margin-top:6px}
+.ch{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.ch button{background:#e6efee;color:#1F6F6B;border-radius:99px;padding:8px 14px;font-size:13px}.ch button.on{background:#1F6F6B;color:#fff}
+.bd{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#eef5f4;color:#1F6F6B}
+.bd.pending{background:#fff3d6;color:#8a5a00}.bd.shipped{background:#e0eefc;color:#0b5394}.bd.delivered{background:#d8f3e3;color:#0a5a41}.bd.rejected,.bd.cancelled{background:#fde2de;color:#9b2a1d}
+.bx{background:#f5f9f8;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.8}
+.it{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #e3ecea;font-size:13px}
+.t{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}.t.g{font-weight:800;font-size:15px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.k{background:#f5f9f8;border-radius:12px;padding:10px 12px}.k small{display:block;color:#7a8785;font-size:12px}.k b{font-size:17px}
+a{color:#1F6F6B}
+</style>
+</head>
+<body>
+<header><b>Kivra</b><span id="hs">دخول الموظفين</span><button class="w" id="out" hidden>خروج</button></header>
+<main id="m"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const sb=supabase.createClient('https://xnvxhnohmkblkrjkuepu.supabase.co','sb_publishable_RVvnRmfskuNJRYw8YVMRdA_enWXzNgI');
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>Number(n||0).toFixed(2)+' ج.م';
+const tm=t=>{try{return t?new Date(t).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}):''}catch(e){return ''}};
+const ST={pending:'جديد',accepted:'مقبول',shipped:'تم الشحن',delivered:'تم التسليم',rejected:'مرفوض',cancelled:'ملغي'};
+const ERR={bad_code:'الكود غلط أو متوقف، أو محاولات كتير (جرّب بعد 15 دقيقة)',owner_inactive:'حساب الصيدلية غير مفعّل',denied:'مش مسموح لك بالعملية دي',not_found:'الطلب مش موجود',bad_status:'حالة غير صحيحة'};
+const KEY='kivra_staff_code';
+let CODE='',INFO=null,ORD=[],OF='new',VIEW='orders',RANGE='today';
+const pad=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+async function rpc(n,a){
+  const r=await sb.rpc(n,a);
+  if(r.error) throw new Error('مشكلة في الاتصال، جرّب تاني');
+  const d=r.data; if(d&&d.ok===false) throw new Error(ERR[d.error]||d.error||'حصل خطأ');
+  return d;
+}
+function login(){
+  $('#hs').textContent='دخول الموظفين'; $('#out').hidden=true;
+  $('#m').innerHTML='<div class="card"><h2>دخول الموظفين</h2><p class="muted">اكتب الكود اللي صاحب الصيدلية بعتهولك.</p><input id="cd" dir="ltr" autocomplete="off" placeholder="الكود"><div id="le" class="err"></div><div class="row"><button id="go">دخول</button></div></div>';
+  $('#go').onclick=async()=>{
+    const c=$('#cd').value.trim(); if(!c){$('#le').textContent='اكتب الكود';return;}
+    $('#go').disabled=true;
+    try{ INFO=await rpc('staff_login',{p_code:c}); CODE=c; localStorage.setItem(KEY,c); start(); }
+    catch(e){ $('#le').textContent=e.message; $('#go').disabled=false; }
+  };
+}
+function start(){
+  $('#hs').textContent=INFO.pharmacy+' · '+INFO.name; $('#out').hidden=false;
+  VIEW=INFO.orders?'orders':(INFO.reports?'report':'none'); draw();
+}
+$('#out').onclick=()=>{localStorage.removeItem(KEY);CODE='';INFO=null;login();};
+function tabs(){
+  const t=[]; if(INFO.orders) t.push(['orders','📦 الطلبات']); if(INFO.reports) t.push(['report','📊 التقرير']);
+  return t.length>1?'<div class="ch">'+t.map(x=>'<button data-v="'+x[0]+'" class="'+(VIEW===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</div>':'';
+}
+async function draw(){
+  const m=$('#m');
+  if(VIEW==='none'){ m.innerHTML='<div class="card"><p class="muted">مفيش صلاحيات متاحة لحسابك. كلّم صاحب الصيدلية.</p></div>'; return; }
+  m.innerHTML=tabs()+'<p class="muted">جاري التحميل...</p>';
+  try{ if(VIEW==='orders') await drawOrders(); else await drawReport(); }
+  catch(e){ m.innerHTML=tabs()+'<div class="card err">'+esc(e.message)+'</div>'+(/الكود|مفعّل/.test(e.message)?'<div class="row"><button id="rl">إعادة الدخول</button></div>':''); const b=$('#rl'); if(b) b.onclick=()=>{localStorage.removeItem(KEY);login();}; }
+}
+const grp=o=>o.status==='pending'?'new':(o.status==='accepted'||o.status==='shipped')?'run':'done';
+function card(o){
+  const items=(o.items||[]).map(x=>'<div class="it"><span>'+esc(x.name)+' × '+esc(x.qty)+'</span><b>'+money(x.price*x.qty)+'</b></div>').join('');
+  let act='';
+  if(INFO.manage){
+    if(o.status==='pending') act='<button data-a="accepted" data-id="'+o.id+'">✅ قبول</button><button class="r" data-a="rejected" data-id="'+o.id+'">رفض</button>';
+    else if(o.status==='accepted'&&o.mode==='delivery') act='<input data-dn="'+o.id+'" placeholder="اسم المندوب"><input data-dp="'+o.id+'" type="tel" placeholder="رقم المندوب"><button data-a="ship" data-id="'+o.id+'">🚚 تم الشحن</button>';
+    else if(o.status==='accepted'||o.status==='shipped') act='<button data-a="delivered" data-id="'+o.id+'">📦 تم التسليم</button>';
+  }
+  return '<div class="card"><div><b>#'+esc(o.order_no)+'</b> <span class="bd '+esc(o.status)+'">'+esc(ST[o.status]||o.status)+'</span> <span class="muted">'+tm(o.created_at)+'</span></div>'+
+  '<div class="bx"><b>'+esc(o.name)+'</b> · <a href="tel:'+esc(o.phone)+'">📞 '+esc(o.phone)+'</a><br>'+(o.mode==='delivery'?'🛵 توصيل: '+esc(o.address):'🏬 استلام من الصيدلية')+(o.notes?'<br>📝 '+esc(o.notes):'')+'</div>'+items+
+  '<div class="t g"><span>الإجمالي</span><span>'+money(o.total)+'</span></div>'+(o.driver_name?'<div class="bx">🚚 المندوب: <b>'+esc(o.driver_name)+'</b> · '+esc(o.driver_phone)+'</div>':'')+
+  (act?'<div class="row">'+act+'</div>':'')+'</div>';
+}
+async function drawOrders(){
+  const d=await rpc('staff_orders',{p_code:CODE}); ORD=d.orders||[];
+  const c={new:0,run:0,done:0}; ORD.forEach(o=>c[grp(o)]++);
+  const list=ORD.filter(o=>OF==='all'||grp(o)===OF);
+  const chip=(k,l)=>'<button data-f="'+k+'" class="'+(OF===k?'on':'')+'">'+l+(k!=='all'?' ('+c[k]+')':'')+'</button>';
+  $('#m').innerHTML=tabs()+'<div class="ch">'+chip('new','جديدة')+chip('run','شغّالة')+chip('done','منتهية')+chip('all','الكل')+'<button data-r="1">🔄</button></div>'+(list.length?list.map(card).join(''):'<p class="muted">مفيش طلبات هنا.</p>');
+}
+function span(){const t=new Date(),to=ymd(t);let f=to;if(RANGE==='week'){const d=new Date(t);d.setDate(d.getDate()-6);f=ymd(d);}if(RANGE==='month')f=to.slice(0,8)+'01';return [f,to];}
+async function drawReport(){
+  const [a,b]=span(); const d=(await rpc('staff_report',{p_code:CODE,p_from:a,p_to:b})).data||{}, o=d.orders||[];
+  const chip=(k,l)=>'<button data-rg="'+k+'" class="'+(RANGE===k?'on':'')+'">'+l+'</button>';
+  $('#m').innerHTML=tabs()+'<div class="ch">'+chip('today','اليوم')+chip('week','آخر 7 أيام')+chip('month','الشهر')+'</div><div class="muted">الفترة: '+esc(a)+' ← '+esc(b)+'</div>'+
+  '<div class="g2" style="margin:10px 0"><div class="k"><small>مبيعات مسلّمة</small><b>'+money(d.sales)+'</b></div><div class="k"><small>طلبات مسلّمة</small><b>'+esc(d.delivered)+'</b></div><div class="k"><small>طلبات وصلت</small><b>'+esc(d.received)+'</b></div><div class="k"><small>ملغية / مرفوضة</small><b>'+esc(d.cancelled)+'</b></div></div>'+
+  '<div class="card"><h2>طلبات الفترة ('+o.length+')</h2>'+(o.length?o.map(x=>'<div class="it"><span><b>#'+esc(x.order_no)+'</b> · '+esc(ST[x.status]||x.status)+'<br><span class="muted">'+tm(x.delivered_at||x.created_at)+'</span></span><b>'+money(x.total)+'</b></div>').join(''):'<p class="muted">مفيش طلبات في الفترة دي.</p>')+'</div>';
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b||!INFO) return;
+  if(b.dataset.v){VIEW=b.dataset.v;draw();return;}
+  if(b.dataset.f){OF=b.dataset.f;draw();return;}
+  if(b.dataset.rg){RANGE=b.dataset.rg;draw();return;}
+  if(b.dataset.r){draw();return;}
+  if(b.dataset.a){
+    const id=Number(b.dataset.id),a=b.dataset.a; b.disabled=true;
+    try{
+      if(a==='ship'){ const n=document.querySelector('[data-dn="'+id+'"]'),p=document.querySelector('[data-dp="'+id+'"]'); await rpc('staff_ship',{p_code:CODE,p_id:id,p_driver_name:n?n.value.trim():'',p_driver_phone:p?p.value.trim():''}); }
+      else { if(a==='rejected'&&!confirm('رفض الطلب؟')){b.disabled=false;return;} await rpc('staff_set_status',{p_code:CODE,p_id:id,p_status:a}); }
+      draw();
+    }catch(err){ alert(err.message); b.disabled=false; }
+  }
+});
+setInterval(()=>{ if(INFO&&VIEW==='orders'&&!document.hidden&&!(document.activeElement&&document.activeElement.tagName==='INPUT')) draw(); },30000);
+(async()=>{
+  const c=localStorage.getItem(KEY);
+  if(c){ try{ INFO=await rpc('staff_login',{p_code:c}); CODE=c; start(); return; }catch(e){ localStorage.removeItem(KEY); } }
+  login();
+})();
+</script>
+</body>
+</html>
