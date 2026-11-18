@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F6F6B">
+<meta name="robots" content="noindex">
+<title>Kivra — موظفين المخزن</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:#f3f8f7;color:#1c2423;line-height:1.55}
+header{background:#1F6F6B;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header b{font-size:19px}header span{flex:1;font-size:13px;color:#d4ece9}
+main{max-width:640px;margin:0 auto;padding:14px 14px 40px}
+.card{background:#fff;border:1px solid #dfe8e7;border-radius:16px;padding:14px;margin:10px 0}
+h2{margin:0 0 8px;font-size:18px;color:#1F6F6B}
+input{display:block;width:100%;padding:12px;border:1px solid #cfdcda;border-radius:12px;font-size:16px;margin:6px 0}
+button{padding:10px 16px;border:0;border-radius:12px;background:#1F6F6B;color:#fff;font-size:15px;cursor:pointer}
+button.r{background:#c0392b}button.w{background:rgba(255,255,255,.2)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.row button{flex:1;min-width:110px}
+.muted{color:#7a8785;font-size:13px}.err{color:#b3261e;font-size:14px;margin-top:6px}
+.ch{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.ch button{background:#e6efee;color:#1F6F6B;border-radius:99px;padding:8px 14px;font-size:13px}.ch button.on{background:#1F6F6B;color:#fff}
+.bd{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#eef5f4;color:#1F6F6B}
+.bd.pending{background:#fff3d6;color:#8a5a00}.bd.shipped{background:#e0eefc;color:#0b5394}.bd.delivered{background:#d8f3e3;color:#0a5a41}.bd.rejected,.bd.cancelled{background:#fde2de;color:#9b2a1d}
+.bx{background:#f5f9f8;border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.8}
+.li{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed #e3ecea}
+.im{width:64px;height:64px;flex:0 0 64px;border-radius:12px;background:#eceeee;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:28px}
+.im img{width:100%;height:100%;object-fit:cover}
+.lt{flex:1;min-width:0;font-size:14px}.lt b{display:block}
+.t{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}.t.g{font-weight:800;font-size:15px}
+a{color:#1F6F6B}
+</style>
+</head>
+<body>
+<header><b>Kivra</b><span id="hs">دخول موظفين المخزن</span><button class="w" id="out" hidden>خروج</button></header>
+<main id="m"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const sb=supabase.createClient('https://xnvxhnohmkblkrjkuepu.supabase.co','sb_publishable_RVvnRmfskuNJRYw8YVMRdA_enWXzNgI');
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=Number(v);return isFinite(n)?n:0};
+const money=n=>num(n).toFixed(2)+' ج.م';
+const tm=t=>{try{return t?new Date(t).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}):''}catch(e){return ''}};
+const ST={pending:'جديد',accepted:'مقبول',shipped:'تم الشحن',delivered:'تم التسليم',received:'استلمته الصيدلية',rejected:'مرفوض',cancelled:'ملغي'};
+const ERR={bad_code:'الكود غلط أو متوقف',denied:'مش مسموح لك بالعملية دي',not_found:'الطلب مش موجود',bad_status:'حالة غير صحيحة',fn_missing:'في دالة ناقصة في قاعدة البيانات'};
+const KEY='kivra_wh_staff_code';
+let CODE='',INFO=null,ORD=[],OF='new';
+async function rpc(n,a){
+  const r=await sb.rpc(n,a);
+  if(r.error) throw new Error('مشكلة في الاتصال: '+(r.error.message||'جرّب تاني'));
+  const d=r.data; if(d&&d.ok===false) throw new Error(ERR[d.error]||d.error||'حصل خطأ');
+  return d;
+}
+function imgUrl(p){
+  if(!p) return '';
+  if(/^https?:/.test(p)) return p;
+  try{ return sb.storage.from('product-images').getPublicUrl(p).data.publicUrl; }catch(e){ return ''; }
+}
+document.addEventListener('error',e=>{
+  const t=e.target; if(t&&t.tagName==='IMG'&&t.parentNode&&t.parentNode.classList.contains('im')) t.parentNode.textContent='🧴';
+},true);
+function login(){
+  $('#hs').textContent='دخول موظفين المخزن'; $('#out').hidden=true;
+  $('#m').innerHTML='<div class="card"><h2>دخول موظفين المخزن</h2><p class="muted">اكتب الكود اللي صاحب المخزن بعتهولك.</p><input id="cd" dir="ltr" autocomplete="off" placeholder="الكود"><div id="le" class="err"></div><div class="row"><button id="go">دخول</button></div></div>';
+  $('#go').onclick=async()=>{
+    const c=$('#cd').value.trim(); if(!c){$('#le').textContent='اكتب الكود';return;}
+    $('#go').disabled=true;
+    try{ INFO=await rpc('wh_staff_login',{p_code:c}); CODE=c; localStorage.setItem(KEY,c); start(); }
+    catch(e){ $('#le').textContent=e.message; $('#go').disabled=false; }
+  };
+}
+function start(){
+  $('#hs').textContent='المخزن · '+INFO.name; $('#out').hidden=false;
+  if(!INFO.orders){ $('#m').innerHTML='<div class="card"><p class="muted">مفيش صلاحيات متاحة لحسابك. كلّم صاحب المخزن.</p></div>'; return; }
+  draw();
+}
+$('#out').onclick=()=>{localStorage.removeItem(KEY);CODE='';INFO=null;login();};
+const grp=o=>o.status==='pending'?'new':(o.status==='accepted'||o.status==='shipped')?'run':'done';
+function card(o){
+  const items=Array.isArray(o.items)?o.items:[];
+  let sum=0;
+  const rows=items.map(x=>{
+    const nm=x.product_name||x.name||'', q=num(x.qty), pr=num(x.unit_price!=null?x.unit_price:x.public_price);
+    sum+=pr*q; const u=imgUrl(x.image_path);
+    return '<div class="li"><div class="im">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':'🧴')+'</div><div class="lt"><b>'+esc(nm)+'</b><span class="muted">الكمية: '+esc(x.qty)+(pr?' · '+money(pr):'')+'</span></div></div>';
+  }).join('');
+  const tot=o.total!=null?o.total:(o.total_amount!=null?o.total_amount:sum);
+  const id=esc(o.id);
+  let act='';
+  if(INFO.manage){
+    if(o.status==='pending') act='<button data-a="accepted" data-id="'+id+'">✅ قبول</button><button class="r" data-a="rejected" data-id="'+id+'">رفض</button>';
+    else if(o.status==='accepted') act='<input data-dn="'+id+'" placeholder="اسم المندوب (اختياري)"><input data-dp="'+id+'" type="tel" placeholder="رقم المندوب (اختياري)"><button data-a="ship" data-id="'+id+'">🚚 تم الشحن</button>';
+    else if(o.status==='shipped') act='<button data-a="delivered" data-id="'+id+'">📦 تم التسليم</button>';
+  }
+  return '<div class="card"><div><b>#'+esc(o.order_no||'')+'</b> <span class="bd '+esc(o.status)+'">'+esc(ST[o.status]||o.status)+'</span> <span class="muted">'+tm(o.created_at)+'</span></div>'+
+  (o.notes?'<div class="bx">📝 '+esc(o.notes)+'</div>':'')+rows+
+  '<div class="t g"><span>الإجمالي</span><span>'+money(tot)+'</span></div>'+
+  (o.driver_name?'<div class="bx">🚚 المندوب: <b>'+esc(o.driver_name)+'</b>'+(o.driver_phone?' · '+esc(o.driver_phone):'')+'</div>':'')+
+  (act?'<div class="row">'+act+'</div>':'')+'</div>';
+}
+async function draw(){
+  $('#m').innerHTML='<p class="muted">جاري التحميل...</p>';
+  try{
+    const d=await rpc('wh_staff_orders',{p_code:CODE}); ORD=d.orders||[];
+    const c={new:0,run:0,done:0}; ORD.forEach(o=>c[grp(o)]++);
+    const list=ORD.filter(o=>OF==='all'||grp(o)===OF);
+    const chip=(k,l)=>'<button data-f="'+k+'" class="'+(OF===k?'on':'')+'">'+l+(k!=='all'?' ('+c[k]+')':'')+'</button>';
+    $('#m').innerHTML='<div class="ch">'+chip('new','جديدة')+chip('run','شغّالة')+chip('done','منتهية')+chip('all','الكل')+'<button data-r="1">🔄</button></div>'+(list.length?list.map(card).join(''):'<p class="muted">مفيش طلبات هنا.</p>');
+  }catch(e){
+    $('#m').innerHTML='<div class="card err">'+esc(e.message)+'</div>'+(/الكود/.test(e.message)?'<div class="row"><button id="rl">إعادة الدخول</button></div>':'');
+    const b=$('#rl'); if(b) b.onclick=()=>{localStorage.removeItem(KEY);login();};
+  }
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b||!INFO) return;
+  if(b.dataset.f){OF=b.dataset.f;draw();return;}
+  if(b.dataset.r){draw();return;}
+  if(b.dataset.a){
+    const id=b.dataset.id,a=b.dataset.a; b.disabled=true;
+    try{
+      if(a==='ship'){
+        const n=document.querySelector('[data-dn="'+id+'"]'),p=document.querySelector('[data-dp="'+id+'"]');
+        await rpc('wh_staff_ship',{p_code:CODE,p_id:id,p_driver_name:n?n.value.trim():'',p_driver_phone:p?p.value.trim():''});
+      } else {
+        if(a==='rejected'&&!confirm('رفض الطلب؟')){b.disabled=false;return;}
+        await rpc('wh_staff_set_status',{p_code:CODE,p_id:id,p_status:a});
+      }
+      draw();
+    }catch(err){ alert(err.message); b.disabled=false; }
+  }
+});
+setInterval(()=>{ if(INFO&&INFO.orders&&!document.hidden&&!(document.activeElement&&document.activeElement.tagName==='INPUT')) draw(); },30000);
+(async()=>{
+  const c=localStorage.getItem(KEY);
+  if(c){ try{ INFO=await rpc('wh_staff_login',{p_code:c}); CODE=c; start(); return; }catch(e){ localStorage.removeItem(KEY); } }
+  login();
+})();
+</script>
+</body>
+</html>
