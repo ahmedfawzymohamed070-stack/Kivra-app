@@ -63,6 +63,17 @@ function imgUrl(p){
 document.addEventListener('error',e=>{
   const t=e.target; if(t&&t.tagName==='IMG'&&t.parentNode&&t.parentNode.classList.contains('im')) t.parentNode.textContent='🧴';
 },true);
+function printOrder(o){
+  const items=Array.isArray(o.items)?o.items:[]; let sum=0;
+  const rows=items.map(x=>{const q=num(x.qty),p=num(x.unit_price!=null?x.unit_price:x.public_price); sum+=p*q; return '<tr><td>'+esc(x.product_name||x.name||'')+'</td><td>'+q+'</td><td>'+money(p)+'</td><td>'+money(p*q)+'</td></tr>';}).join('');
+  const tot=o.total!=null?o.total:(o.total_amount!=null?o.total_amount:sum);
+  const h='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>فاتورة #'+esc(o.order_no||'')+'</title><style>body{font-family:system-ui,Tahoma,sans-serif;padding:16px;max-width:560px;margin:auto;color:#111}h1{font-size:20px;margin:0}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border-bottom:1px solid #ccc;padding:6px;text-align:right;font-size:14px}.t{display:flex;justify-content:space-between;font-weight:800;font-size:18px;margin-top:8px}.m{color:#555;font-size:13px;line-height:1.8}@media print{.np{display:none}}</style></head><body>'+
+  '<h1>'+esc(INFO.warehouse||'المخزن')+'</h1><div class="m">فاتورة طلب #'+esc(o.order_no||'')+' · '+esc(tm(o.created_at))+'</div>'+
+  '<table><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>'+rows+'</table>'+
+  '<div class="t"><span>الإجمالي</span><span>'+money(tot)+'</span></div><p class="m">شكراً لتعاملكم معنا</p><button class="np" onclick="window.print()">طباعة / حفظ PDF</button></body></html>';
+  const w=window.open('','_blank'); if(!w){ alert('اسمح بالنوافذ المنبثقة وجرّب تاني'); return; }
+  w.document.write(h); w.document.close(); setTimeout(()=>{try{w.focus();w.print();}catch(e){}},400);
+}
 function login(){
   $('#hs').textContent='دخول موظفين المخزن'; $('#out').hidden=true;
   $('#m').innerHTML='<div class="card"><h2>دخول موظفين المخزن</h2><p class="muted">اكتب الكود اللي صاحب المخزن بعتهولك.</p><input id="cd" dir="ltr" autocomplete="off" placeholder="الكود"><div id="le" class="err"></div><div class="row"><button id="go">دخول</button></div></div>';
@@ -82,7 +93,7 @@ function tabs(){
   return t.length>1?'<div class="ch">'+t.map(x=>'<button data-v="'+x[0]+'" class="'+(VIEW===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</div>':'';
 }
 function start(){
-  $('#hs').textContent='المخزن · '+INFO.name; $('#out').hidden=false;
+  $('#hs').textContent=(INFO.warehouse||'المخزن')+' · '+INFO.name; $('#out').hidden=false;
   const a=avail();
   if(!a.length){ $('#m').innerHTML='<div class="card"><p class="muted">مفيش صلاحيات متاحة لحسابك. كلّم صاحب المخزن.</p></div>'; return; }
   VIEW=a[0][0]; draw();
@@ -109,7 +120,7 @@ function card(o){
   (o.notes?'<div class="bx">📝 '+esc(o.notes)+'</div>':'')+rows+
   '<div class="t g"><span>الإجمالي</span><span>'+money(tot)+'</span></div>'+
   (o.driver_name?'<div class="bx">🚚 المندوب: <b>'+esc(o.driver_name)+'</b>'+(o.driver_phone?' · '+esc(o.driver_phone):'')+'</div>':'')+
-  (act?'<div class="row">'+act+'</div>':'')+'</div>';
+  (act?'<div class="row">'+act+'</div>':'')+'<div class="row"><button style="background:#e6efee;color:#1F6F6B" data-pr="'+id+'">🖨️ طباعة الفاتورة</button></div></div>';
 }
 async function draw(){
   if(VIEW==='products') return drawProducts();
@@ -175,6 +186,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button'); if(!b||!INFO) return;
+  if(b.dataset.pr!==undefined){ const o=ORD.find(x=>String(x.id)===String(b.dataset.pr)); if(o) printOrder(o); return; }
   if(b.dataset.v){VIEW=b.dataset.v;draw();return;}
   if(b.dataset.pv){PV=b.dataset.pv;draw();return;}
   if(b.dataset.add!==undefined){ addProduct(Number(b.dataset.add),b); return; }
