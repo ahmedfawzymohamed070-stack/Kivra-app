@@ -30,6 +30,14 @@ button.r{background:#c0392b}button.w{background:rgba(255,255,255,.2)}
 label.lb{font-size:13px;color:#52605e}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #tt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(30px + env(safe-area-inset-bottom));background:#1c2423;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;z-index:40}
+#nv{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:#fff;border-top:1px solid #dfe8e7;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+#nv button{flex:1;background:none;color:#7a8785;border-radius:12px;padding:6px 2px;font-size:12px;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px}
+#nv button span{font-size:22px;line-height:1.1}
+#nv button.on{color:#1F6F6B;font-weight:800;background:#e6efee}
+#nv button i{position:absolute;top:0;left:50%;margin-left:6px;background:#d8365d;color:#fff;border-radius:99px;font-style:normal;font-size:11px;min-width:18px;padding:1px 5px}
+main{padding-bottom:100px!important}
+.k{background:#f5f9f8;border-radius:12px;padding:10px 12px}.k small{display:block;color:#7a8785;font-size:12px}.k b{font-size:17px}
+#tt{bottom:calc(100px + env(safe-area-inset-bottom))!important}
 a{color:#1F6F6B}
 </style>
 </head>
@@ -47,7 +55,8 @@ const tm=t=>{try{return t?new Date(t).toLocaleString('ar-EG',{dateStyle:'short',
 const ST={pending:'جديد',accepted:'مقبول',shipped:'تم الشحن',delivered:'تم التسليم',received:'استلمته الصيدلية',rejected:'مرفوض',cancelled:'ملغي'};
 const ERR={bad_values:'السعر أو الكمية غير صحيحة',bad_code:'الكود غلط أو متوقف',denied:'مش مسموح لك بالعملية دي',not_found:'الطلب مش موجود',bad_status:'حالة غير صحيحة',fn_missing:'في دالة ناقصة في قاعدة البيانات'};
 const KEY='kivra_wh_staff_code';
-let CODE='',INFO=null,ORD=[],OF='new',VIEW='orders',PV='add',CAT=[],MINE=[],QT=null;
+let CODE='',INFO=null,ORD=[],OF='new',VIEW='orders',PV='add',CAT=[],MINE=[],QT=null,RANGE='today';
+const pad=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 function toast(t){const o=$('#tt');if(o)o.remove();const d=document.createElement('div');d.id='tt';d.textContent=t;document.body.appendChild(d);setTimeout(()=>{if(d.parentNode)d.remove()},2200);}
 async function rpc(n,a){
   const r=await sb.rpc(n,a);
@@ -75,6 +84,7 @@ function printOrder(o){
   w.document.write(h); w.document.close(); setTimeout(()=>{try{w.focus();w.print();}catch(e){}},400);
 }
 function login(){
+  { const nv=document.getElementById('nv'); if(nv) nv.remove(); }
   $('#hs').textContent='دخول موظفين المخزن'; $('#out').hidden=true;
   $('#m').innerHTML='<div class="card"><h2>دخول موظفين المخزن</h2><p class="muted">اكتب الكود اللي صاحب المخزن بعتهولك.</p><input id="cd" dir="ltr" autocomplete="off" placeholder="الكود"><div id="le" class="err"></div><div class="row"><button id="go">دخول</button></div></div>';
   $('#go').onclick=async()=>{
@@ -85,13 +95,17 @@ function login(){
   };
 }
 function avail(){
-  const t=[]; if(INFO.orders) t.push(['orders','📦 الطلبات']); if(INFO.products) t.push(['products','🛍️ المنتجات']);
+  const t=[]; if(INFO.orders) t.push(['orders','📦 الطلبات']); if(INFO.products) t.push(['products','🛍️ المنتجات']); if(INFO.reports) t.push(['report','📊 التقارير']);
   return t;
 }
-function tabs(){
-  const t=avail();
-  return t.length>1?'<div class="ch">'+t.map(x=>'<button data-v="'+x[0]+'" class="'+(VIEW===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</div>':'';
+function renderNav(){
+  const t=avail(); let n=document.getElementById('nv');
+  if(!INFO||t.length<2){ if(n) n.remove(); return; }
+  if(!n){ n=document.createElement('nav'); n.id='nv'; document.body.appendChild(n); }
+  const nw=(Array.isArray(ORD)?ORD:[]).filter(o=>o.status==='pending').length;
+  n.innerHTML=t.map(x=>{const p=x[1].split(' ');return '<button data-v="'+x[0]+'" class="'+(VIEW===x[0]?'on':'')+'"><span>'+p[0]+'</span>'+esc(p.slice(1).join(' '))+(x[0]==='orders'&&nw?'<i>'+nw+'</i>':'')+'</button>';}).join('');
 }
+function tabs(){ renderNav(); return ''; }
 function start(){
   $('#hs').textContent=(INFO.warehouse||'المخزن')+' · '+INFO.name; $('#out').hidden=false;
   const a=avail();
@@ -124,6 +138,7 @@ function card(o){
 }
 async function draw(){
   if(VIEW==='products') return drawProducts();
+  if(VIEW==='report') return drawReport();
   return drawOrders();
 }
 async function drawOrders(){
@@ -134,6 +149,17 @@ async function drawOrders(){
     const list=ORD.filter(o=>OF==='all'||grp(o)===OF);
     const chip=(k,l)=>'<button data-f="'+k+'" class="'+(OF===k?'on':'')+'">'+l+(k!=='all'?' ('+c[k]+')':'')+'</button>';
     $('#m').innerHTML=tabs()+'<div class="ch">'+chip('new','جديدة')+chip('run','شغّالة')+chip('done','منتهية')+chip('all','الكل')+'<button data-r="1">🔄</button></div>'+(list.length?list.map(card).join(''):'<p class="muted">مفيش طلبات هنا.</p>');
+  }catch(e){ fail(e); }
+}
+function span(){const t=new Date(),to=ymd(t);let f=to;if(RANGE==='week'){const d=new Date(t);d.setDate(d.getDate()-6);f=ymd(d);}if(RANGE==='month')f=to.slice(0,8)+'01';return [f,to];}
+async function drawReport(){
+  $('#m').innerHTML=tabs()+'<p class="muted">جاري التحميل...</p>';
+  try{
+    const [a,b]=span(); const d=(await rpc('wh_staff_report',{p_code:CODE,p_from:a,p_to:b})).data||{}, o=d.orders||[];
+    const chip=(k,l)=>'<button data-rg="'+k+'" class="'+(RANGE===k?'on':'')+'">'+l+'</button>';
+    $('#m').innerHTML=tabs()+'<div class="ch">'+chip('today','اليوم')+chip('week','آخر 7 أيام')+chip('month','الشهر')+'</div><div class="muted">الفترة: '+esc(a)+' ← '+esc(b)+'</div>'+
+    '<div class="g2" style="margin:10px 0"><div class="k"><small>مبيعات مسلّمة</small><b>'+money(d.sales)+'</b></div><div class="k"><small>طلبات مسلّمة</small><b>'+esc(d.delivered)+'</b></div><div class="k"><small>طلبات وصلت</small><b>'+esc(d.received)+'</b></div><div class="k"><small>ملغية / مرفوضة</small><b>'+esc(d.cancelled)+'</b></div></div>'+
+    '<div class="card"><h2>طلبات الفترة ('+o.length+')</h2>'+(o.length?o.map(x=>'<div class="t" style="padding:6px 0;border-bottom:1px dashed #e3ecea"><span><b>#'+esc(x.order_no||'')+'</b> · '+esc(ST[x.status]||x.status)+'<br><span class="muted">'+tm(x.delivered_at||x.created_at)+'</span></span><b>'+money(x.total)+'</b></div>').join(''):'<p class="muted">مفيش طلبات في الفترة دي.</p>')+'</div>';
   }catch(e){ fail(e); }
 }
 function fail(e){
@@ -187,6 +213,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button'); if(!b||!INFO) return;
   if(b.dataset.pr!==undefined){ const o=ORD.find(x=>String(x.id)===String(b.dataset.pr)); if(o) printOrder(o); return; }
+  if(b.dataset.rg){RANGE=b.dataset.rg;draw();return;}
   if(b.dataset.v){VIEW=b.dataset.v;draw();return;}
   if(b.dataset.pv){PV=b.dataset.pv;draw();return;}
   if(b.dataset.add!==undefined){ addProduct(Number(b.dataset.add),b); return; }
