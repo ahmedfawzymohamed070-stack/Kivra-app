@@ -19,9 +19,10 @@ async function render(box,newCode){
   (list.length?list.map(s=>'<div class="wst-r" data-id="'+E(s.id)+'"><div><b>'+E(s.name)+'</b> <span class="badge '+(s.active?'approved':'rejected')+'">'+(s.active?'شغّال':'موقوف')+'</span><div class="muted">آخر دخول: '+tm(s.last_used_at)+'</div></div>'+
    '<label><input type="checkbox" data-wsp="orders"'+(s.orders?' checked':'')+'> يشوف طلبات المخزن</label>'+
    '<label><input type="checkbox" data-wsp="manage"'+(s.manage?' checked':'')+'> يقبل ويشحن ويسلّم</label>'+
+   '<label><input type="checkbox" data-wsp="products"'+(s.products?' checked':'')+'> يضيف منتجات</label>'+
    '<div class="wst-row"><button type="button" class="ghost" data-wst="toggle" data-a="'+(s.active?'0':'1')+'">'+(s.active?'إيقاف':'تشغيل')+'</button><button type="button" class="ghost" data-wst="newcode">كود جديد</button><button type="button" class="red" data-wst="del">حذف</button></div></div>').join(''):'<p class="muted">لسه ما أضفتش موظفين.</p>')+
   '<div id="wst-add" class="wst-r"><b>إضافة موظف</b><label>الاسم<input id="wst-n" placeholder="اسم الموظف"></label>'+
-  '<label><input type="checkbox" id="wst-o" checked> يشوف طلبات المخزن</label><label><input type="checkbox" id="wst-m" checked> يقبل ويشحن ويسلّم</label>'+
+  '<label><input type="checkbox" id="wst-o" checked> يشوف طلبات المخزن</label><label><input type="checkbox" id="wst-m" checked> يقبل ويشحن ويسلّم</label><label><input type="checkbox" id="wst-p"> يضيف منتجات</label>'+
   '<div class="wst-row"><button type="button" data-wst="add">إضافة وعمل كود</button></div></div>';
 }
 document.addEventListener('click',e=>{
@@ -34,12 +35,12 @@ document.addEventListener('click',e=>{
   (async()=>{ try{
     if(k==='add'){
       const n=document.getElementById('wst-n').value.trim(); if(!n){msg('اكتب اسم الموظف');return;}
-      const o=document.getElementById('wst-o').checked,m=document.getElementById('wst-m').checked;
-      if(!o){msg('لازم يشوف الطلبات');return;}
-      const d=await rpc('wh_staff_add',{p_name:n,p_orders:o,p_manage:m});
+      const o=document.getElementById('wst-o').checked,m=document.getElementById('wst-m').checked,pp=document.getElementById('wst-p').checked;
+      if(!o&&!pp){msg('اختار صلاحية واحدة على الأقل');return;}
+      const d=await rpc('wh_staff_add',{p_name:n,p_orders:o,p_manage:m,p_products:pp});
       await render(box,codeBox(d.code,n)); return;
     }
-    if(k==='toggle'){ await rpc('wh_staff_update',{p_id:id,p_orders:null,p_manage:null,p_active:b.dataset.a==='1'}); await render(box); return; }
+    if(k==='toggle'){ await rpc('wh_staff_update',{p_id:id,p_orders:null,p_manage:null,p_products:null,p_active:b.dataset.a==='1'}); await render(box); return; }
     if(k==='newcode'){ if(b.dataset.arm!=='1'){ b.dataset.arm='1'; b.textContent='تأكيد؟ القديم هيبطل'; setTimeout(()=>{b.dataset.arm='0';b.textContent='كود جديد'},4000); return; }
       const nm=row.querySelector('b').textContent; const c=await rpc('wh_staff_new_code',{p_id:id}); await render(box,codeBox(c.code,nm)); return; }
     if(k==='del'){ if(b.dataset.arm!=='1'){ b.dataset.arm='1'; b.textContent='تأكيد الحذف؟'; setTimeout(()=>{b.dataset.arm='0';b.textContent='حذف'},4000); return; }
@@ -49,9 +50,9 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
   const c=e.target.closest('[data-wsp]'); if(!c) return; const row=c.closest('.wst-r'); if(!row||!row.dataset.id) return;
   const g=k=>{const x=row.querySelector('[data-wsp="'+k+'"]');return x?x.checked:null};
-  const o=g('orders'), m=g('manage');
-  if(!o){ c.checked=true; msg('لازم يشوف الطلبات'); return; }
-  rpc('wh_staff_update',{p_id:Number(row.dataset.id),p_orders:o,p_manage:m,p_active:null}).then(()=>msg('تم الحفظ')).catch(()=>msg('مقدرتش أحفظ'));
+  const o=g('orders'), m=g('manage'), pp=g('products');
+  if(!o&&!pp){ c.checked=true; msg('لازم صلاحية واحدة على الأقل'); return; }
+  rpc('wh_staff_update',{p_id:Number(row.dataset.id),p_orders:o,p_manage:m,p_products:pp,p_active:null}).then(()=>msg('تم الحفظ')).catch(()=>msg('مقدرتش أحفظ'));
 });
 let tmr=null;
 new MutationObserver(()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{
