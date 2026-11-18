@@ -27,6 +27,9 @@ button.r{background:#c0392b}button.w{background:rgba(255,255,255,.2)}
 .im img{width:100%;height:100%;object-fit:cover}
 .lt{flex:1;min-width:0;font-size:14px}.lt b{display:block}
 .t{display:flex;justify-content:space-between;font-size:13px;padding:2px 0}.t.g{font-weight:800;font-size:15px}
+label.lb{font-size:13px;color:#52605e}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#tt{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(30px + env(safe-area-inset-bottom));background:#1c2423;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;z-index:40}
 a{color:#1F6F6B}
 </style>
 </head>
@@ -42,9 +45,10 @@ const num=v=>{const n=Number(v);return isFinite(n)?n:0};
 const money=n=>num(n).toFixed(2)+' ج.م';
 const tm=t=>{try{return t?new Date(t).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'}):''}catch(e){return ''}};
 const ST={pending:'جديد',accepted:'مقبول',shipped:'تم الشحن',delivered:'تم التسليم',received:'استلمته الصيدلية',rejected:'مرفوض',cancelled:'ملغي'};
-const ERR={bad_code:'الكود غلط أو متوقف',denied:'مش مسموح لك بالعملية دي',not_found:'الطلب مش موجود',bad_status:'حالة غير صحيحة',fn_missing:'في دالة ناقصة في قاعدة البيانات'};
+const ERR={bad_values:'السعر أو الكمية غير صحيحة',bad_code:'الكود غلط أو متوقف',denied:'مش مسموح لك بالعملية دي',not_found:'الطلب مش موجود',bad_status:'حالة غير صحيحة',fn_missing:'في دالة ناقصة في قاعدة البيانات'};
 const KEY='kivra_wh_staff_code';
-let CODE='',INFO=null,ORD=[],OF='new';
+let CODE='',INFO=null,ORD=[],OF='new',VIEW='orders',PV='add',CAT=[],MINE=[],QT=null;
+function toast(t){const o=$('#tt');if(o)o.remove();const d=document.createElement('div');d.id='tt';d.textContent=t;document.body.appendChild(d);setTimeout(()=>{if(d.parentNode)d.remove()},2200);}
 async function rpc(n,a){
   const r=await sb.rpc(n,a);
   if(r.error) throw new Error('مشكلة في الاتصال: '+(r.error.message||'جرّب تاني'));
@@ -69,10 +73,19 @@ function login(){
     catch(e){ $('#le').textContent=e.message; $('#go').disabled=false; }
   };
 }
+function avail(){
+  const t=[]; if(INFO.orders) t.push(['orders','📦 الطلبات']); if(INFO.products) t.push(['products','🛍️ المنتجات']);
+  return t;
+}
+function tabs(){
+  const t=avail();
+  return t.length>1?'<div class="ch">'+t.map(x=>'<button data-v="'+x[0]+'" class="'+(VIEW===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+'</div>':'';
+}
 function start(){
   $('#hs').textContent='المخزن · '+INFO.name; $('#out').hidden=false;
-  if(!INFO.orders){ $('#m').innerHTML='<div class="card"><p class="muted">مفيش صلاحيات متاحة لحسابك. كلّم صاحب المخزن.</p></div>'; return; }
-  draw();
+  const a=avail();
+  if(!a.length){ $('#m').innerHTML='<div class="card"><p class="muted">مفيش صلاحيات متاحة لحسابك. كلّم صاحب المخزن.</p></div>'; return; }
+  VIEW=a[0][0]; draw();
 }
 $('#out').onclick=()=>{localStorage.removeItem(KEY);CODE='';INFO=null;login();};
 const grp=o=>o.status==='pending'?'new':(o.status==='accepted'||o.status==='shipped')?'run':'done';
@@ -99,20 +112,72 @@ function card(o){
   (act?'<div class="row">'+act+'</div>':'')+'</div>';
 }
 async function draw(){
-  $('#m').innerHTML='<p class="muted">جاري التحميل...</p>';
+  if(VIEW==='products') return drawProducts();
+  return drawOrders();
+}
+async function drawOrders(){
+  $('#m').innerHTML=tabs()+'<p class="muted">جاري التحميل...</p>';
   try{
     const d=await rpc('wh_staff_orders',{p_code:CODE}); ORD=d.orders||[];
     const c={new:0,run:0,done:0}; ORD.forEach(o=>c[grp(o)]++);
     const list=ORD.filter(o=>OF==='all'||grp(o)===OF);
     const chip=(k,l)=>'<button data-f="'+k+'" class="'+(OF===k?'on':'')+'">'+l+(k!=='all'?' ('+c[k]+')':'')+'</button>';
-    $('#m').innerHTML='<div class="ch">'+chip('new','جديدة')+chip('run','شغّالة')+chip('done','منتهية')+chip('all','الكل')+'<button data-r="1">🔄</button></div>'+(list.length?list.map(card).join(''):'<p class="muted">مفيش طلبات هنا.</p>');
-  }catch(e){
-    $('#m').innerHTML='<div class="card err">'+esc(e.message)+'</div>'+(/الكود/.test(e.message)?'<div class="row"><button id="rl">إعادة الدخول</button></div>':'');
-    const b=$('#rl'); if(b) b.onclick=()=>{localStorage.removeItem(KEY);login();};
-  }
+    $('#m').innerHTML=tabs()+'<div class="ch">'+chip('new','جديدة')+chip('run','شغّالة')+chip('done','منتهية')+chip('all','الكل')+'<button data-r="1">🔄</button></div>'+(list.length?list.map(card).join(''):'<p class="muted">مفيش طلبات هنا.</p>');
+  }catch(e){ fail(e); }
 }
+function fail(e){
+  $('#m').innerHTML=tabs()+'<div class="card err">'+esc(e.message)+'</div>'+(/الكود/.test(e.message)?'<div class="row"><button id="rl">إعادة الدخول</button></div>':'');
+  const b=$('#rl'); if(b) b.onclick=()=>{localStorage.removeItem(KEY);login();};
+}
+function psub(){
+  return '<div class="ch"><button data-pv="add" class="'+(PV==='add'?'on':'')+'">➕ إضافة منتج</button><button data-pv="mine" class="'+(PV==='mine'?'on':'')+'">📋 منتجاتي</button></div>';
+}
+async function drawProducts(){
+  if(PV==='mine'){
+    $('#m').innerHTML=tabs()+psub()+'<p class="muted">جاري التحميل...</p>';
+    try{
+      const d=await rpc('wh_staff_products',{p_code:CODE}); MINE=d.items||[];
+      $('#m').innerHTML=tabs()+psub()+(MINE.length?MINE.map(x=>{
+        const u=imgUrl(x.image_path), nm=x.name||x.product_name||'منتج';
+        return '<div class="card"><div class="li" style="border:0"><div class="im">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':'🧴')+'</div><div class="lt"><b>'+esc(nm)+'</b><span class="muted">'+esc([x.brand,x.price!=null?money(x.price):'',x.stock!=null?'المخزون: '+x.stock:'',x.active===false?'غير متاح':''].filter(Boolean).join(' · '))+'</span></div></div></div>';
+      }).join(''):'<p class="muted">لسه ما فيش منتجات.</p>');
+    }catch(e){ fail(e); }
+    return;
+  }
+  $('#m').innerHTML=tabs()+psub()+'<input id="pq" placeholder="🔍 دوّر على منتج بالاسم أو الماركة أو الباركود"><div id="pr"><p class="muted">جاري التحميل...</p></div>';
+  loadCat('');
+}
+async function loadCat(q){
+  const box=$('#pr'); if(!box) return;
+  try{
+    const d=await rpc('wh_staff_catalog',{p_code:CODE,p_q:q}); CAT=d.items||[];
+    if(!$('#pr')) return;
+    $('#pr').innerHTML=CAT.length?CAT.map((x,i)=>{
+      const u=imgUrl(x.image_path);
+      return '<div class="card"><div class="li" style="border:0"><div class="im">'+(u?'<img loading="lazy" src="'+esc(u)+'" alt="">':'🧴')+'</div><div class="lt"><b>'+esc(x.name)+'</b><span class="muted">'+esc([x.brand,x.category].filter(Boolean).join(' · '))+'</span></div></div>'+
+      '<div class="g2"><label class="lb">السعر<input type="number" step="any" min="0" inputmode="decimal" data-cp="'+i+'"></label><label class="lb">الكمية<input type="number" step="1" min="0" inputmode="numeric" data-cs="'+i+'"></label></div>'+
+      '<div class="row"><button data-add="'+i+'">➕ أضف لمنتجاتي</button></div></div>';
+    }).join(''):'<p class="muted">مفيش نتايج.</p>';
+  }catch(e){ if($('#pr')) $('#pr').innerHTML='<div class="card err">'+esc(e.message)+'</div>'; }
+}
+async function addProduct(i,b){
+  const x=CAT[i]; if(!x) return;
+  const p=document.querySelector('[data-cp="'+i+'"]').value, s=document.querySelector('[data-cs="'+i+'"]').value;
+  if(p===''||isNaN(Number(p))||Number(p)<=0){ alert('اكتب السعر'); return; }
+  if(s===''||isNaN(Number(s))||Number(s)<0){ alert('اكتب الكمية'); return; }
+  b.disabled=true;
+  try{ await rpc('wh_staff_product_add',{p_code:CODE,p_catalog:String(x.id),p_price:Number(p),p_stock:Math.floor(Number(s))}); toast('تمت الإضافة ✅'); }
+  catch(err){ alert(err.message); }
+  b.disabled=false;
+}
+document.addEventListener('input',e=>{
+  if(e.target&&e.target.id==='pq'){ clearTimeout(QT); const v=e.target.value.trim(); QT=setTimeout(()=>loadCat(v),400); }
+});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button'); if(!b||!INFO) return;
+  if(b.dataset.v){VIEW=b.dataset.v;draw();return;}
+  if(b.dataset.pv){PV=b.dataset.pv;draw();return;}
+  if(b.dataset.add!==undefined){ addProduct(Number(b.dataset.add),b); return; }
   if(b.dataset.f){OF=b.dataset.f;draw();return;}
   if(b.dataset.r){draw();return;}
   if(b.dataset.a){
@@ -129,7 +194,7 @@ document.addEventListener('click',async e=>{
     }catch(err){ alert(err.message); b.disabled=false; }
   }
 });
-setInterval(()=>{ if(INFO&&INFO.orders&&!document.hidden&&!(document.activeElement&&document.activeElement.tagName==='INPUT')) draw(); },30000);
+setInterval(()=>{ if(INFO&&INFO.orders&&VIEW==='orders'&&!document.hidden&&!(document.activeElement&&document.activeElement.tagName==='INPUT')) draw(); },30000);
 (async()=>{
   const c=localStorage.getItem(KEY);
   if(c){ try{ INFO=await rpc('wh_staff_login',{p_code:c}); CODE=c; start(); return; }catch(e){ localStorage.removeItem(KEY); } }
