@@ -12,10 +12,19 @@ const st=document.createElement('style');
 st.textContent='.rg select,#rg-card select,#rg-card input{display:block;width:100%;padding:11px;border:1px solid #cfdcda;border-radius:12px;font-size:16px;margin:6px 0;background:#fff}.rg .muted{margin:4px 0 8px}';
 document.head.appendChild(st);
 let MAP=null, MAP_AT=0, RG={g:'',a:''};
+function fromCity(c){
+  const t=String(c||''); if(!t.trim()) return {g:'',a:''};
+  const nt=nz(t), g=GOVS.find(x=>nt.indexOf(nz(x))>-1); if(!g) return {g:'',a:''};
+  const parts=t.split(/[-–—،,\/]+/).map(x=>x.trim()).filter(Boolean);
+  const rest=parts.filter(p=>nz(p).indexOf(nz(g))<0).join(' ').trim();
+  return {g:g,a:rest};
+}
 async function loadMap(){
   if(MAP&&Date.now()-MAP_AT<60000) return MAP;
   const r=await sb.rpc('list_warehouses2'); if(r.error||!Array.isArray(r.data)) return null;
-  MAP={}; r.data.forEach(w=>{MAP[String(w.id)]={g:w.governorate||'',a:w.area||'',n:nz(w.area)};}); MAP_AT=Date.now(); return MAP;
+  MAP={}; r.data.forEach(w=>{ let g=w.governorate||'', a=w.area||'';
+    if(!g){ const d=fromCity(w.city); g=d.g; a=a||d.a; }
+    MAP[String(w.id)]={g:g,a:a,n:nz(a)}; }); MAP_AT=Date.now(); return MAP;
 }
 function whId(el){ const b=el.querySelector('[data-id]'); return b?String(b.getAttribute('data-id')):null; }
 function apply(main){
@@ -57,7 +66,7 @@ async function injectWarehouse(main){
     const g=card.querySelector('#rgw-g').value, a=card.querySelector('#rgw-a').value.trim();
     if(!g){ msg('اختار المحافظة'); return; }
     const r=await sb.rpc('wh_set_region',{p_gov:g,p_area:a||null});
-    msg(r.error?'مقدرتش أحفظ، جرّب تاني':'تم حفظ منطقة التغطية'); MAP=null;
+    msg(r.error?('مقدرتش أحفظ: '+String(r.error.message||r.error.code||'').slice(0,90)):'تم حفظ منطقة التغطية'); MAP=null;
   };
 }
 let tmr=null;
