@@ -64,14 +64,33 @@
     host.insertAdjacentHTML('afterend', '<p style="margin:6px 0"><a href="#" id="fg-link" style="color:#1F6F6B;font-weight:700">نسيت كلمة المرور؟</a></p>');
   }
 
+  function card(icon, title, body, em) {
+    var o = document.getElementById('fg-msg'); if (o) o.remove();
+    var d = document.createElement('div');
+    d.id = 'fg-msg';
+    d.style.cssText = 'position:fixed;inset:0;z-index:2100;background:rgba(16,40,38,.45);display:flex;align-items:center;justify-content:center;padding:18px;direction:rtl';
+    d.innerHTML = '<div style="background:#fff;border-radius:20px;padding:24px 20px 20px;width:100%;max-width:380px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.18);font-family:inherit">' +
+      '<div style="width:64px;height:64px;border-radius:50%;background:#e8f3f1;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:30px">' + icon + '</div>' +
+      '<h2 style="margin:0 0 8px;color:#1c2423;font-size:20px">' + title + '</h2>' +
+      (em ? '<div dir="ltr" style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;background:#f4f8f7;color:#1F6F6B;border-radius:99px;padding:5px 14px;font-size:14px;font-weight:700;margin-bottom:10px">' + em.replace(/[<>&"]/g, '') + '</div>' : '') +
+      '<p style="margin:0 0 16px;color:#5b6b69;font-size:15px;line-height:1.8">' + body + '</p>' +
+      '<button id="fg-ok" type="button" style="width:100%;background:#1F6F6B;color:#fff;border:0;border-radius:12px;padding:13px;font-weight:700;font-size:16px">حسناً</button></div>';
+    d.addEventListener('click', function (e) { if (e.target === d || e.target.id === 'fg-ok') d.remove(); });
+    document.body.appendChild(d);
+  }
+
   function sendLink() {
     var em = '', ins = document.querySelectorAll('input');
     for (var k = 0; k < ins.length; k++) { var v = (ins[k].value || '').trim(); if (v.indexOf('@') > 0 && ins[k].type !== 'password') { em = v; break; } }
     if (!em) em = (window.prompt('اكتب الإيميل اللي سجّلت بيه') || '').trim();
     if (!em) return;
     sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + '/' }).then(function (r) {
-      say(r && r.error ? ('مقدرناش نبعت اللينك: ' + r.error.message) : 'لو الإيميل مسجّل عندنا هيوصلك لينك تغيير كلمة المرور (شوف الـ Spam كمان)');
-    }).catch(function () { say('حصلت مشكلة، جرّب تاني'); });
+      if (r && r.error) {
+        card('⚠️', 'تعذّر إرسال الرسالة', 'حدثت مشكلة أثناء الإرسال. تأكد من صحة البريد الإلكتروني ثم حاول مرة أخرى بعد قليل.');
+      } else {
+        card('✉️', 'راجع بريدك الإلكتروني', 'إذا كان هذا البريد مسجّلاً لدينا، فقد أرسلنا إليه رسالة تحتوي على رابط لإعادة تعيين كلمة المرور. افتح الرابط من الرسالة لإنشاء كلمة مرور جديدة. وإن لم تصلك الرسالة خلال دقائق، تفقّد مجلد الرسائل غير الهامة (Spam).', em);
+      }
+    }).catch(function () { card('⚠️', 'تعذّر إرسال الرسالة', 'حدثت مشكلة في الاتصال. حاول مرة أخرى بعد قليل.'); });
   }
 
   function showReset() {
@@ -93,8 +112,8 @@
       er.textContent = 'جاري الحفظ...';
       sb.auth.updateUser({ password: p1 }).then(function (r) {
         if (r && r.error) { er.textContent = 'مقدرناش نحفظ: ' + r.error.message; return; }
-        say('تم تغيير كلمة المرور');
-        setTimeout(function () { location.replace(location.pathname); }, 600);
+        er.style.color = '#0a5a41'; er.textContent = 'تم تغيير كلمة المرور بنجاح، جاري تحويلك...';
+        setTimeout(function () { location.replace(location.pathname); }, 900);
       }).catch(function () { er.textContent = 'حصلت مشكلة، جرّب تاني'; });
     };
   }
