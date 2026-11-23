@@ -5,7 +5,13 @@
   var TEST=/Kivra|كيفرا|كيڤرا|كييفرا/i, ALL=/Kivra|كيفرا|كيڤرا|كييفرا/gi, GREEN='#0A4A40';
   var st=document.createElement('style');
   st.textContent='html.cf-nonav #nav{display:none!important}html.cf-nonav main{padding-bottom:28px!important}html.cf-nonav #toast{bottom:24px!important}'+
-    '#app header::before,#app header::after{content:none!important;display:none!important}';
+    '#app header::before,#app header::after{content:none!important;display:none!important}'+
+    /* ستايلات كانت في polish-theme.js وبنحافظ عليها */
+    'a{color:var(--p)!important}label{color:#3d5754}input,select{border-color:#cfe0dd}'+
+    '.item,.wh{border-top-color:#e4efed}.card{box-shadow:0 2px 12px rgba(31,111,107,.08)}.oc,.dc{box-shadow:0 1px 6px rgba(31,111,107,.08)}'+
+    '.ow,.dm span{color:#3d5754}.dm span{background:#f1f7f6;border-color:#d4e5e2}'+
+    '#toast,#pushmsg{background:#17302E}.narrow .logo{display:none}'+
+    '.narrow.card{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#bfe0db,#fff 45%,#f3dcc0) border-box!important}';
   document.head.appendChild(st);
 
   function hide(x){x.style.setProperty('display','none','important');}
