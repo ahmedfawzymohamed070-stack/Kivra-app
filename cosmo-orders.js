@@ -1,4 +1,4 @@
-/* cosmo-orders.js: شريط فلاتر حالة الطلبات (الكل / بانتظار المخزن / قيد التجهيز / تم الشحن / تم التسليم / ملغي) لصفحة طلبات الأدمن.
+/* cosmo-orders.js: شريط فلاتر حالة الطلبات (الكل / بانتظار المخزن / قيد التجهيز / تم الشحن / تم التسليم / ملغي) لصفحة الطلبات عند الأدمن والمخزن والصيدلية.
    بيخفي ويظهر الكروت على الشاشة بس. مفيش لمس لأزرار القبول والرفض والتتبع والطباعة ولا للـ DB. */
 (function(){
 'use strict';
@@ -29,7 +29,7 @@ function stOf(c,l){var n=numOf(c);for(var i=0;i<l.length;i++){if(String(l[i].ord
 
 function tick(){
   var bar=document.getElementById('cff');
-  var admin=typeof ME!=='undefined'&&ME&&ME.role==='admin';
+  var admin=typeof ME!=='undefined'&&ME&&(ME.role==='admin'||ME.role==='warehouse'||ME.role==='pharmacy');
   var list=admin?cards():[];
   if(!admin||!list.length){if(bar)bar.remove();F='all';last='';return;}
   var ords=(typeof ORD!=='undefined'&&Array.isArray(ORD))?ORD:[];
