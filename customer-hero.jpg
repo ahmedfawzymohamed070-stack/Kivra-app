@@ -1,0 +1,11 @@
+/* cosmo-hero.js: صورة خلفية لكارت الترحيب في رئيسية العميل والزائر.
+   الصورة اسمها customer-hero.jpg وتتحط في الريبو جنب index.html. لو الصورة مش موجودة، الكارت يفضل بالتدرج الأخضر زي ما هو.
+   عرض بس. للرجوع: امسح سطره من index.html. */
+(function(){
+'use strict';
+if(window.__cfHero)return; window.__cfHero=1;
+var st=document.createElement('style');
+st.id='cosmo-hero';
+st.textContent='html body .sh-hero{background:linear-gradient(270deg,rgba(10,74,64,.9) 0%,rgba(10,74,64,.6) 55%,rgba(10,74,64,.25) 100%),url(/customer-hero.jpg?v=1) center/cover no-repeat,linear-gradient(135deg,#0A4A40,#1E8A76)!important}';
+document.head.appendChild(st);
+})();
