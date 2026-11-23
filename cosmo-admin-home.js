@@ -1,4 +1,4 @@
-/* cosmo-admin-home.js: الرئيسية الجديدة للأدمن (كروت + رسم آخر 7 أيام + توزيع الطلبات + آخر الطلبات)
+/* cosmo-admin-home.js: الرئيسية الجديدة للأدمن والمخزن (كروت + رسم آخر 7 أيام + توزيع الطلبات + آخر الطلبات)
    بتقرأ من نفس my_orders اللي موجودة. مفيش تغيير في Business Logic أو DB. بتتحمّل بعد kivra-shell.js */
 (function(){
 'use strict';
@@ -64,10 +64,11 @@ function donut(segs,total){
   return '<div class="cfd-dn">'+svg+'<div class="cfd-lg">'+lg+'</div></div>';
 }
 
-async function vAdminHome(m){
+async function vHome(m){
+  var isAdmin=ME.role==='admin';
   var o=[],fail=false,pa=0;
   try{o=ok(await sb.rpc('my_orders'))||[];}catch(e){fail=true;}
-  try{
+  if(isAdmin)try{
     var r=await sb.from('profiles').select('id',{count:'exact',head:true}).eq('status','pending').neq('role','admin');
     pa=r.count||0;
   }catch(e){}
@@ -88,19 +89,21 @@ async function vAdminHome(m){
   var bad=o.filter(function(x){return x.status==='rejected'||x.status==='cancelled';}).length;
   segs.push({n:bad,l:'ملغي / مرفوض',c:'#C0392B'});
   segs=segs.filter(function(s){return s.n>0;});
+  var acc=o.filter(function(x){return x.status==='accepted';}).length;
   var latest=o.slice().sort(function(a,b){return new Date(b.created_at||0)-new Date(a.created_at||0);}).slice(0,5);
   var rows=latest.map(function(x){
     var cls=x.status==='received'?'approved':(x.status==='rejected'||x.status==='cancelled')?'rejected':'pending';
-    return '<button type="button" class="cfd-row" data-kv="go" data-t="ord"><span><b>طلب #'+esc(x.order_no)+'</b><div class="muted">'+esc(x.pharmacy)+' ← '+esc(x.warehouse)+' · '+esc(fd(x.created_at))+'</div></span>'+
+    return '<button type="button" class="cfd-row" data-kv="go" data-t="ord"><span><b>طلب #'+esc(x.order_no)+'</b><div class="muted">'+(isAdmin?esc(x.pharmacy)+' ← '+esc(x.warehouse):esc(x.pharmacy))+' · '+esc(fd(x.created_at))+'</div></span>'+
       '<span style="text-align:end"><b>'+esc(money(x.total))+'</b><div><span class="badge '+cls+'">'+esc(OST[x.status]||x.status)+'</span></div></span></button>';
   }).join('');
   var h='<div class="cfd-t">الرئيسية</div>';
   if(fail)h+='<div class="kv-note">تعذر تحميل بيانات الطلبات، جرّب تفتح الصفحة تاني.</div>';
-  h+='<div class="cfd-k">'+card('money','إجمالي قيمة الطلبات',esc(money(total)))+card('today','طلبات اليوم',today)+card('box','طلبات جديدة',pend,'ord')+card('users','حسابات للمراجعة',pa,'acct')+'</div>';
+  h+='<div class="cfd-k">'+card('money','إجمالي قيمة الطلبات',esc(money(total)))+card('today','طلبات اليوم',today)+card('box','طلبات جديدة',pend,'ord')+(isAdmin?card('users','حسابات للمراجعة',pa,'acct'):card('users',esc(OST.accepted||'قيد التجهيز'),acc,'ord'))+'</div>';
   h+='<div class="cfd-g"><div class="cfd-c"><h3 class="cfd-h">قيمة الطلبات خلال آخر 7 أيام</h3><div class="cfd-ch">'+lineChart(days,vals)+'</div></div>'+
      '<div class="cfd-c"><h3 class="cfd-h">توزيع الطلبات</h3>'+(segs.length?donut(segs,o.length):'<div class="cfd-em">لا توجد طلبات بعد.</div>')+'</div></div>';
   h+='<div class="cfd-c" style="margin-top:12px"><h3 class="cfd-h">آخر الطلبات</h3>'+(rows||'<div class="cfd-em">لا توجد طلبات بعد.</div>')+'</div>';
   m.innerHTML=h;
 }
-V.admin.home=vAdminHome;
+V.admin.home=vHome;
+if(V.warehouse)V.warehouse.home=vHome;
 })();
