@@ -83,7 +83,7 @@ async function vAdminHome(m){
     var k=dkey(new Date(x.created_at));
     for(var j=0;j<7;j++){if(dkey(days[j])===k){vals[j]+=Number(x.total||0);break;}}
   });
-  var G=[['pending','بانتظار المخزن','#E3A857'],['accepted','مقبول','#1E8A76'],['delivered','تم التسليم','#5BB5A5'],['received','تم الاستلام','#0A4A40']];
+  var G=[['pending',OST.pending||'بانتظار المخزن','#E3A857'],['accepted',OST.accepted||'مقبول','#1E8A76'],['delivered',OST.delivered||'تم التسليم','#5BB5A5'],['received',OST.received||'تم الاستلام','#0A4A40']];
   var segs=G.map(function(g){return{n:o.filter(function(x){return x.status===g[0];}).length,l:g[1],c:g[2]};});
   var bad=o.filter(function(x){return x.status==='rejected'||x.status==='cancelled';}).length;
   segs.push({n:bad,l:'ملغي / مرفوض',c:'#C0392B'});
