@@ -28,6 +28,11 @@ function textPass(root) {
 function logoPass() {
   var b = document.querySelector('#app header b');
   if (b && !b.querySelector('.cf-ic')) { b.innerHTML = '<span class="cf-lg">' + SVG + '<span>' + EN + '</span></span>'; }
+  [].forEach.call(document.querySelectorAll('#app header > *'), function (el) {
+    if (/^(B|SPAN|BUTTON)$/.test(el.tagName) || el.classList.contains('kv-menu') || el.querySelector('.cf-ic')) return;
+    el.style.display = 'none';
+  });
+  [].forEach.call(document.querySelectorAll('#app header img, #app header span svg, #app header span img'), function (el) { el.style.display = 'none'; });
   var l = document.querySelector('#app .logo');
   if (l && !l.querySelector('.cf-ic')) { l.className = 'logo cf-big'; l.innerHTML = '<span class="cf-lg">' + SVG + '<span>' + EN + '</span></span>'; }
 }
