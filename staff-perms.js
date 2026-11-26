@@ -16,6 +16,7 @@
   var ALL = [];
   GROUPS.forEach(function (g) { g[1].forEach(function (p) { ALL.push(p[0]); }); });
 
+  var LIVE = ['orders.view','orders.accept','orders.reject','orders.ship','orders.deliver','products.view','products.add','products.edit','reports.view'];
   var S = { list: [], q: '', cur: null, perms: {}, orig: {}, busy: false };
   var root = null;
 
@@ -51,7 +52,7 @@
       '#sp .sw i:after{content:"";position:absolute;top:3px;right:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.2s}' +
       '#sp .sw input:checked+i{background:' + T + '}#sp .sw input:checked+i:after{right:23px}' +
       '#sp .bar{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;box-shadow:0 -2px 10px rgba(0,0,0,.08);z-index:3}' +
-      '#sp .bar .btn{flex:1}';
+      '#sp .bar .btn{flex:1}#sp .soon{background:#fff3cd;color:#7a5b00;border-radius:99px;padding:1px 8px;font-size:11px}';
     document.head.appendChild(s);
   }
 
@@ -109,11 +110,11 @@
       h += '<div class="card"><div class="gh"><b>' + esc(g[0]) + '</b><span class="cnt" id="sp-c' + gi + '"></span>' +
         '<button class="btn g s" data-a="all" data-g="' + gi + '" id="sp-b' + gi + '"></button></div>';
       g[1].forEach(function (p) {
-        h += '<div class="pr"><span>' + esc(p[1]) + '</span><label class="sw"><input type="checkbox" data-k="' + p[0] + '"' + (S.perms[p[0]] ? ' checked' : '') + '><i></i></label></div>';
+        h += '<div class="pr"><span>' + esc(p[1]) + (LIVE.indexOf(p[0]) < 0 ? ' <small class="soon">قريبًا</small>' : '') + '</span><label class="sw"><input type="checkbox" data-k="' + p[0] + '"' + (S.perms[p[0]] ? ' checked' : '') + '><i></i></label></div>';
       });
       h += '</div>';
     });
-    h += '<div class="mu" style="margin:6px 0 10px">ملحوظة: الصلاحيات الجديدة تُحفظ الآن، وتصبح فعّالة تدريجيًا كلما ربطنا كل عملية بها.</div>';
+    h += '<div class="mu" style="margin:6px 0 10px">ملحوظة: المفاتيح المكتوب عليها "قريبًا" تُحفظ لكن لا تؤثر بعد، لأن الميزة نفسها لم تُربط.</div>';
     shell(h);
     var bar = document.createElement('div'); bar.className = 'bar';
     bar.innerHTML = '<button class="btn g" data-a="cancel">إلغاء</button><button class="btn" data-a="save">حفظ الصلاحيات</button>';
